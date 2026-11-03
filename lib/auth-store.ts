@@ -27,11 +27,12 @@ function subscribe(callback: () => void) {
   return () => window.removeEventListener(CHANGE_EVENT, callback)
 }
 
-export function useIsGuest(): boolean | null {
+export function useIsGuest(): boolean {
   return useSyncExternalStore(
     subscribe,
     () => sessionStorage.getItem(GUEST_KEY) === '1',
-    () => null,
+    // The server renders the landing so it paints before any JavaScript runs.
+    () => false,
   )
 }
 
@@ -70,7 +71,9 @@ export async function signIn(role: Role, email: string, password: string) {
   if (error) throw new AuthError('Email o contraseña incorrectos.')
 
   const actualRole = await getMyRole()
-  if (actualRole !== role) {
+  // Administrators sign in through the Institución entry.
+  const isAdminEntry = role === 'evento' && actualRole === 'admin'
+  if (actualRole !== role && !isAdminEntry) {
     await authClient.signOut()
     throw new AuthError(
       actualRole

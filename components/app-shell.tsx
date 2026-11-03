@@ -9,6 +9,7 @@ import { VitrinaFeed } from '@/components/feed/vitrina-feed'
 import { NotificationBanner, NotificationsPanel } from '@/components/notifications'
 import { NavContext, type MainTab, type Nav } from '@/components/app/nav'
 import { Sheet } from '@/components/app/kit'
+import { usePrefetchTabs } from '@/components/app/prefetch'
 import { HomeFeed } from '@/components/home/home-feed'
 import { MatchDeck } from '@/components/match/match-deck'
 import { Inbox } from '@/components/messages/inbox'
@@ -47,6 +48,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [askAccount, setAskAccount] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const isGuest = viewer.role === 'invitado'
+  usePrefetchTabs(viewer.role)
   const visibleTabs = isGuest ? tabs.filter((t) => t.id === 'inicio' || t.id === 'vitrina') : tabs
 
   const goTo = useCallback((next: MainTab) => {

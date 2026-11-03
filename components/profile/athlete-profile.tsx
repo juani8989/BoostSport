@@ -207,7 +207,7 @@ export function AthleteProfileView({ profileKey }: { profileKey: string }) {
                 <li key={post.id} className="relative aspect-[3/4] overflow-hidden rounded-md bg-card">
                   {post.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={post.image} alt={post.body.slice(0, 60)} className="absolute inset-0 size-full object-cover" />
+                    <img loading="lazy" decoding="async" src={post.image} alt={post.body.slice(0, 60)} className="absolute inset-0 size-full object-cover" />
                   ) : (
                     <p className="line-clamp-6 p-2 text-[11px] leading-snug">{post.body}</p>
                   )}
@@ -229,7 +229,7 @@ export function AthleteProfileView({ profileKey }: { profileKey: string }) {
               <li key={photo.src} className={cn('flex flex-col gap-1', i === 0 && 'col-span-2')}>
                 <div className={cn('relative overflow-hidden rounded-xl bg-card', i === 0 ? 'aspect-video' : 'aspect-square')}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photo.src} alt={photo.caption} className="absolute inset-0 size-full object-cover" />
+                  <img loading="lazy" decoding="async" src={photo.src} alt={photo.caption} className="absolute inset-0 size-full object-cover" />
                 </div>
                 <p className="text-xs leading-snug">{photo.caption}</p>
                 {photo.credit ? (

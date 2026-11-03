@@ -99,6 +99,14 @@ export function AuthPanel({ role, onClose }: { role: Role; onClose: () => void }
                   Crealo acá
                 </button>
               </p>
+              {/* TODO: provisional, remove before launch. Exposes the admin login publicly. */}
+              {role === 'evento' ? (
+                <p className="mt-[40vh] rounded-lg border border-dashed border-olympic-white/20 p-4 font-mono text-sm text-olympic-white/70">
+                  ADMIN: admin@boostsport.com
+                  <br />
+                  contra: admin123
+                </p>
+              ) : null}
             </>
           ) : role === 'deportista' ? (
             <AthleteSignup />
