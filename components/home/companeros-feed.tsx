@@ -322,7 +322,7 @@ function Composer({ onClose, onPosted }: { onClose: () => void; onPosted: () => 
         {image ? (
           <div className="relative overflow-hidden rounded-xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image} alt="Vista previa" className="max-h-56 w-full object-cover" />
+            <img loading="lazy" decoding="async" src={image} alt="Vista previa" className="max-h-56 w-full object-cover" />
             <button type="button" onClick={() => setImage(null)} aria-label="Quitar imagen" className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-background/80">
               <X className="size-4" />
             </button>

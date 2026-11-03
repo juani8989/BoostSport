@@ -26,7 +26,7 @@ export function EventBrandsFeed() {
             <article className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground">
               {b.party.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={b.party.image} alt="" className="h-32 w-full object-cover" />
+                <img loading="lazy" decoding="async" src={b.party.image} alt="" className="h-32 w-full object-cover" />
               ) : null}
               <div className="flex flex-col gap-3 p-4">
                 <div>
@@ -81,7 +81,7 @@ function BrandDetail({ brand, onClose, onPropose }: { brand: BrandCard; onClose:
                 <li key={m.name} className="flex flex-col gap-1">
                   {m.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.image} alt={m.name} className="aspect-square w-full rounded-xl bg-secondary object-cover" />
+                    <img loading="lazy" decoding="async" src={m.image} alt={m.name} className="aspect-square w-full rounded-xl bg-secondary object-cover" />
                   ) : null}
                   <span className="text-xs font-semibold leading-tight">{m.name}</span>
                   <span className="text-xs text-muted-foreground">{m.price}</span>

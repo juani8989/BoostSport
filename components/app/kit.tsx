@@ -16,7 +16,7 @@ export function PartyAvatar({ party, className }: { party: Pick<Party, 'name' | 
     <span className={cn('relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-display text-sm font-semibold ring-2', roleRing[party.role], className)}>
       {party.image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={party.image} alt="" className="absolute inset-0 size-full object-cover" />
+        <img loading="lazy" decoding="async" src={party.image} alt="" className="absolute inset-0 size-full object-cover" />
       ) : (
         <span aria-hidden>{party.initials}</span>
       )}

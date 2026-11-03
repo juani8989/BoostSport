@@ -1,24 +1,23 @@
 'use server'
 
 import { eq } from 'drizzle-orm'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { profiles } from '@/lib/db/schema'
+import { getSession } from '@/lib/session'
 import { ROLES, type AthleteProfile, type OrgProfile, type Role } from '@/lib/profile-types'
 
 const MAX_PROFILE_BYTES = 3_000_000
 
 async function getUserId() {
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await getSession()
   if (!session?.user) throw new Error('Unauthorized')
   return session.user.id
 }
 
-export async function getMyRole(): Promise<Role | null> {
+export async function getMyRole(): Promise<Role | 'admin' | null> {
   const userId = await getUserId()
   const [row] = await db.select({ role: profiles.role }).from(profiles).where(eq(profiles.userId, userId)).limit(1)
-  return (row?.role as Role) ?? null
+  return (row?.role as Role | 'admin') ?? null
 }
 
 export async function createProfile(role: Role, profile: AthleteProfile | OrgProfile): Promise<{ ok: true } | { ok: false; error: string }> {

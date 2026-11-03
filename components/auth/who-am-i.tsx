@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { ArrowRight, Eye } from 'lucide-react'
 import { enterAsGuest, type Role } from '@/lib/auth-store'
+import { landingPhotos as panelImages } from '@/lib/landing-photos'
 import { roleConfig } from '@/lib/roles'
-import type { FamousAthlete } from '@/lib/wikipedia'
-import { AuthPanel } from '@/components/auth/auth-panel'
 import { BrandLine } from '@/components/brand-logo'
 import { cn } from '@/lib/utils'
 
@@ -26,33 +26,30 @@ function OlympicRings({ className }: { className?: string }) {
   )
 }
 
-type PanelImage = { src: string; position: string }
-
-const panelImages: Record<Role, PanelImage[]> = {
-  deportista: [
-    { src: '/images/real-athlete.jpg', position: 'object-[30%_30%]' },
-    { src: '/images/real-athlete-2.jpg', position: 'object-[50%_30%]' },
-  ],
-  empresa: [
-    { src: '/images/real-sponsor.jpg', position: 'object-center' },
-    { src: '/images/real-sponsor-2.jpg', position: 'object-center' },
-    { src: '/images/real-sponsor-3.jpg', position: 'object-[50%_40%]' },
-  ],
-  evento: [
-    { src: '/images/real-event.jpg', position: 'object-center' },
-    { src: '/images/real-event-2.jpg', position: 'object-center' },
-    { src: '/images/real-event-3.jpg', position: 'object-center' },
-  ],
-}
+const loadAuthPanel = () => import('@/components/auth/auth-panel')
+const AuthPanel = dynamic(() => loadAuthPanel().then((m) => m.AuthPanel))
 
 const roleOrder: Role[] = ['deportista', 'empresa', 'evento']
 
-function RoleBackdrop({ active, photoIndex }: { active: Role | null; photoIndex: Record<Role, number> }) {
+const photoAt = (role: Role, index: number) => panelImages[role][index % panelImages[role].length]
+
+function RoleBackdrop({
+  active,
+  photoIndex,
+  seen,
+}: {
+  active: Role | null
+  photoIndex: Record<Role, number>
+  seen: Set<string>
+}) {
+  const current = active ? photoAt(active, photoIndex[active]) : null
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-[5]">
       {roleOrder.flatMap((role) =>
         panelImages[role].map((image, i) => {
           const isActive = active === role && photoIndex[role] % panelImages[role].length === i
+          // Solo se montan las fotos ya vistas y la próxima de cada rol, para no bajar todas de entrada.
+          if (!seen.has(image.src) && image !== photoAt(role, photoIndex[role] + 1)) return null
           return (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -74,6 +71,15 @@ function RoleBackdrop({ active, photoIndex }: { active: Role | null; photoIndex:
           active ? 'opacity-100' : 'opacity-0',
         )}
       />
+      {current?.caption ? (
+        <p
+          key={current.src}
+          className="absolute right-4 top-16 max-w-[60vw] text-right text-xs text-olympic-white/80 animate-in fade-in duration-700 md:right-6 md:top-6"
+        >
+          <span className="font-semibold">{current.caption}</span>
+          {current.credit ? <span className="block text-[10px] text-olympic-white/50">Foto: {current.credit} · Wikimedia Commons</span> : null}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -108,21 +114,26 @@ function RolePanel({
   )
 }
 
-export function WhoAmI(_props: { athletes?: FamousAthlete[] }) {
+export function WhoAmI() {
   const [selected, setSelected] = useState<Role | null>(null)
   const [hovered, setHovered] = useState<Role | null>(null)
   const [photoIndex, setPhotoIndex] = useState<Record<Role, number>>({ deportista: 0, empresa: 0, evento: 0 })
+  const [seen, setSeen] = useState<Set<string>>(() => new Set())
 
   const activate = (role: Role) => {
+    // Hovering a role means a click is likely; have the sign-in form ready.
+    loadAuthPanel()
     if (role === hovered) return
+    const next = photoIndex[role] + 1
     setHovered(role)
-    setPhotoIndex((prev) => ({ ...prev, [role]: prev[role] + 1 }))
+    setPhotoIndex((prev) => ({ ...prev, [role]: next }))
+    setSeen((prev) => new Set(prev).add(photoAt(role, next).src))
   }
 
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden bg-olympic-black text-olympic-white">
       <OlympicRings className="pointer-events-none absolute left-1/2 top-[55%] w-[min(1500px,170vw)] -translate-x-1/2 -translate-y-1/2 opacity-45" />
-      <RoleBackdrop active={hovered} photoIndex={photoIndex} />
+      <RoleBackdrop active={hovered} photoIndex={photoIndex} seen={seen} />
       <BrandLine className="relative z-30" />
       <header className="pointer-events-none relative z-20 flex flex-col items-center gap-3 px-6 pt-6 text-center md:absolute md:inset-x-0 md:top-0.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}

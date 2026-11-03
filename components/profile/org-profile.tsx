@@ -37,7 +37,7 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
     <div className="flex h-full flex-col gap-6 overflow-y-auto px-4 pb-28 pt-20 no-scrollbar">
       <section className="flex flex-col items-center gap-3 text-center">
         {profile.logo ? (
-          <img src={profile.logo || "/placeholder.svg"} alt={`Logo de ${profile.orgName}`} className="size-24 rounded-full object-cover ring-4 ring-olympic-yellow" />
+          <img loading="lazy" decoding="async" src={profile.logo || "/placeholder.svg"} alt={`Logo de ${profile.orgName}`} className="size-24 rounded-full object-cover ring-4 ring-olympic-yellow" />
         ) : (
           <PartyAvatar party={{ name: profile.orgName, initials: profile.orgName.slice(0, 2).toUpperCase(), role: profile.kind }} className="size-24 ring-4" />
         )}
@@ -121,7 +121,7 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
             {sponsored.map((s) => (
               <li key={s.key} className="w-32 shrink-0">
                 <button type="button" onClick={() => nav.openProfile(s.key)} className="flex w-full flex-col gap-2 text-left">
-                  <img src={s.image || '/images/swimmer.png'} alt={s.name} className="aspect-[3/4] w-full rounded-2xl object-cover" />
+                  <img loading="lazy" decoding="async" src={s.image || '/images/swimmer.webp'} alt={s.name} className="aspect-[3/4] w-full rounded-2xl object-cover" />
                   <span className="flex flex-col">
                     <span className="truncate text-sm font-bold">{s.name}</span>
                     <span className="truncate text-xs text-muted-foreground">{s.discipline}</span>
@@ -142,7 +142,7 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
           <ul className="grid grid-cols-2 gap-3">
             {merch.map((m) => (
               <li key={m.name} className="flex flex-col gap-2 rounded-2xl bg-card p-2">
-                <img src={m.image || '/placeholder.svg'} alt={m.name} className="aspect-square w-full rounded-xl object-cover" />
+                <img loading="lazy" decoding="async" src={m.image || '/placeholder.svg'} alt={m.name} className="aspect-square w-full rounded-xl object-cover" />
                 <div className="flex flex-col px-1 pb-1">
                   <span className="text-sm font-semibold leading-tight">{m.name}</span>
                   <span className="font-display text-lg font-semibold text-olympic-green">{m.price}</span>

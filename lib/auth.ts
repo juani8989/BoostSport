@@ -36,6 +36,8 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
+    // Reads the session from a signed cookie instead of the database on most requests.
+    cookieCache: { enabled: true, maxAge: 5 * 60 },
   },
   ...(process.env.NODE_ENV === 'development'
     ? {

@@ -1,10 +1,9 @@
 import 'server-only'
 
 import { eq, inArray } from 'drizzle-orm'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { profiles, user } from '@/lib/db/schema'
+import { getProfileRow, getSession } from '@/lib/session'
 import type { AthleteProfile, OrgProfile, Role } from '@/lib/profile-types'
 import { athletes } from '@/lib/data'
 import { companyFromKey, seedAthleteFromKey } from '@/lib/catalog'
@@ -20,9 +19,9 @@ export type ServerViewer = {
 export const userKey = (id: string) => `user:${id}`
 
 export async function getViewer(): Promise<ServerViewer | null> {
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await getSession()
   if (!session?.user) return null
-  const [row] = await db.select().from(profiles).where(eq(profiles.userId, session.user.id)).limit(1)
+  const row = await getProfileRow(session.user.id)
   if (!row) return null
   const profile = row.data as AthleteProfile | OrgProfile
   const name = profile.kind === 'deportista' ? `${profile.firstName} ${profile.lastName}`.trim() : profile.orgName

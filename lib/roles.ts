@@ -52,10 +52,10 @@ export const brandLogos = [
 ]
 
 export const eventImages = [
-  { name: 'Juegos Olímpicos', src: '/images/event-stadium.png' },
-  { name: 'Maratones', src: '/images/event-marathon.png' },
-  { name: 'Torneos', src: '/images/event-arena.png' },
-  { name: 'Vueltas ciclistas', src: '/images/event-cycling.png' },
+  { name: 'Juegos Olímpicos', src: '/images/event-stadium.webp' },
+  { name: 'Maratones', src: '/images/event-marathon.webp' },
+  { name: 'Torneos', src: '/images/event-arena.webp' },
+  { name: 'Vueltas ciclistas', src: '/images/event-cycling.webp' },
 ]
 
 export const disciplines = [
