@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { profiles, user } from '@/lib/db/schema'
-import { devVerificationLink } from '@/lib/email'
+import { devVerificationLink, takeEmailFailure } from '@/lib/email'
 import { ROLES, type AthleteProfile, type OrgProfile, type Role } from '@/lib/profile-types'
 
 const MAX_PROFILE_BYTES = 3_000_000
@@ -12,7 +12,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // Where the confirmation button lands; the app reads it to greet the new user.
 const VERIFIED_CALLBACK = '/?verificado=1'
 
-export type RegisterResult = { ok: true; email: string; devLink?: string } | { ok: false; error: string }
+export type RegisterResult = { ok: true; email: string; devLink?: string; mailFailed?: boolean } | { ok: false; error: string }
 
 /**
  * Creates the account and its profile in one server step, then Better Auth emails a
@@ -58,7 +58,8 @@ export async function registerUser(input: {
   }
 
   await db.insert(profiles).values({ userId, role, data: profile }).onConflictDoNothing({ target: profiles.userId })
-  return { ok: true, email, devLink: devVerificationLink(email) }
+  // The account exists either way; if the mail didn't go out, the screen offers to resend it.
+  return { ok: true, email, devLink: devVerificationLink(email), mailFailed: !!takeEmailFailure(email) }
 }
 
 /** Development only: the link that would have been mailed, so the flow can be tested without a mail provider. */
@@ -76,5 +77,6 @@ export async function resendVerification(email: string): Promise<RegisterResult>
     console.error('[register] resend failed', error)
     return { ok: false, error: 'No pudimos reenviar el mail. Probá en unos minutos.' }
   }
+  if (takeEmailFailure(clean)) return { ok: false, error: 'No pudimos enviar el mail. Probá de nuevo en unos minutos.' }
   return { ok: true, email: clean, devLink: devVerificationLink(clean) }
 }

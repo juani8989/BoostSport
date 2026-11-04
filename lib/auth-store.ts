@@ -45,7 +45,7 @@ export class EmailNotVerifiedError extends AuthError {
   }
 }
 
-export type PendingVerification = { email: string; devLink?: string }
+export type PendingVerification = { email: string; devLink?: string; mailFailed?: boolean }
 
 /** Creates the account; it stays inactive until the person opens the link we email them. */
 export async function registerAccount(input: {
@@ -57,7 +57,7 @@ export async function registerAccount(input: {
 }): Promise<PendingVerification> {
   const result = await registerUser(input)
   if (!result.ok) throw new AuthError(result.error)
-  return { email: result.email, devLink: result.devLink }
+  return { email: result.email, devLink: result.devLink, mailFailed: result.mailFailed }
 }
 
 export async function resendVerificationEmail(email: string): Promise<PendingVerification> {

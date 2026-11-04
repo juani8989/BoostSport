@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react'
 import useSWR, { preload } from 'swr'
 import { ArrowRight, Building2, Eye, Handshake, LayoutDashboard, LogOut, Menu, MessageCircle, MessagesSquare, Newspaper, ShieldAlert, Trophy, UserRound, UserRoundX, Users, X } from 'lucide-react'
-import { getAdminOverview, listAdminUsers } from '@/app/actions/admin'
+import { adminTestEmail, getAdminOverview, listAdminUsers } from '@/app/actions/admin'
 import { signOut } from '@/lib/auth-store'
 import type { Role } from '@/lib/profile-types'
 import { BrandLine, BrandLogo } from '@/components/brand-logo'
-import { AdminFeedbackProvider, Avatar, RoleBadge, Section, formatDate, roleMeta } from '@/components/admin/admin-ui'
+import { AdminFeedbackProvider, Avatar, Button, RoleBadge, Section, formatDate, roleMeta, useAdminFeedback } from '@/components/admin/admin-ui'
 import { AdminUserList, prefetchAdminUser } from '@/components/admin/admin-user-list'
 import { AdminUserDetail } from '@/components/admin/admin-user-detail'
 import { cn } from '@/lib/utils'
@@ -112,6 +112,7 @@ export function AdminPanel({ admin }: { admin: { id: string; name: string; email
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Panel de administración</p>
               <h1 className="truncate font-display text-2xl font-semibold">{navItems.find((n) => n.id === section)?.label}</h1>
             </div>
+            <TestEmailButton />
             <span className="hidden rounded-full bg-olympic-red/15 px-3 py-1 text-xs font-bold text-olympic-red sm:inline">Acceso total</span>
           </header>
 
@@ -127,6 +128,38 @@ export function AdminPanel({ admin }: { admin: { id: string; name: string; email
         {openUser ? <AdminUserDetail userId={openUser.id} initialTab={openUser.tab} selfId={admin.id} onClose={() => setOpenUser(null)} /> : null}
       </div>
     </AdminFeedbackProvider>
+  )
+}
+
+function TestEmailButton() {
+  const { toast } = useAdminFeedback()
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <div className="relative">
+      <Button
+        size="sm"
+        pending={pending}
+        onClick={async () => {
+          setPending(true)
+          setError(null)
+          const res = await adminTestEmail()
+          setPending(false)
+          if (res.ok) toast(`Mail de prueba enviado a ${res.to} con ${res.provider}`)
+          else setError(res.error)
+        }}
+      >
+        <MessageCircle className="size-3.5" /> Probar envío de mails
+      </Button>
+      {error ? (
+        <div role="alert" className="absolute right-0 top-10 z-20 w-80 rounded-xl border border-olympic-red/40 bg-card p-3 text-xs leading-relaxed text-olympic-red shadow-xl">
+          {error}
+          <button type="button" onClick={() => setError(null)} className="mt-2 block font-semibold text-foreground underline">
+            Cerrar
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

@@ -9,7 +9,8 @@ import { convertProfile, emptyProfile, profileDisplayName, profileImage } from '
 import { ROLES, type AthleteProfile, type OrgProfile, type Role } from '@/lib/profile-types'
 import { userKey } from '@/lib/viewer'
 import { completenessOf, profileChecklist } from '@/lib/profile-checklist'
-import { sendEmail } from '@/lib/email'
+import { emailProvider, sendEmail, takeEmailFailure } from '@/lib/email'
+import { emailLayout } from '@/lib/emails/layout'
 import { profileReminderMessage } from '@/lib/emails/profile-reminder'
 import { siteUrl } from '@/lib/site-url'
 
@@ -447,4 +448,23 @@ export async function adminRemindProfile(id: string, input: { keys?: string[]; n
     return { ok: false, error: error instanceof Error ? error.message : 'No pudimos enviar el mail.' }
   }
   return { ok: true, sent: missing.length }
+}
+
+/** Sends a test email to the sending inbox itself and reports the exact error, to diagnose delivery in production. */
+export async function adminTestEmail(): Promise<Result<{ provider: string; to: string }>> {
+  const admin = await requireAdmin()
+  const provider = emailProvider()
+  if (!provider) return { ok: false, error: 'No hay datos de envío configurados en este entorno: faltan GMAIL_USER y GMAIL_APP_PASSWORD (o RESEND_API_KEY).' }
+  const to = process.env.GMAIL_USER?.trim() || admin.email
+  try {
+    await sendEmail({
+      to,
+      subject: 'Prueba de envío de BoostSport',
+      text: `Mail de prueba enviado desde ${siteUrl()} con ${provider}.`,
+      html: emailLayout({ title: 'Prueba de envío', rows: `<tr><td style="padding:16px 32px 32px;font-size:15px;line-height:1.6;color:#a3a3a3;">Mail de prueba enviado desde ${siteUrl()} con ${provider}. Si lo estás leyendo, el envío funciona.</td></tr>` }),
+    })
+  } catch {
+    return { ok: false, error: `Falló el envío con ${provider}: ${takeEmailFailure(to) ?? 'error desconocido'}` }
+  }
+  return { ok: true, provider, to }
 }
