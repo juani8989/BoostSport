@@ -51,9 +51,31 @@ async function sendWithResend(email: Email) {
   if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`)
 }
 
+// Better Auth sends the verification email in a background task and only logs failures,
+// so sign-up would look successful. The last failure per address is kept here for the
+// caller to check within the same request.
+const failures = new Map<string, string>()
+
+export function takeEmailFailure(email: string) {
+  const key = email.toLowerCase()
+  const reason = failures.get(key)
+  failures.delete(key)
+  return reason
+}
+
+export function emailProvider() {
+  if (process.env.RESEND_API_KEY) return 'Resend'
+  if (gmailUser() && gmailPassword()) return `Gmail (${gmailUser()})`
+  return null
+}
+
 export async function sendEmail(email: Email, devLink?: string) {
+  failures.delete(email.to.toLowerCase())
   if (!canSendEmail()) {
-    if (process.env.NODE_ENV === 'production') throw new Error('No email provider configured (GMAIL_* or RESEND_API_KEY)')
+    if (process.env.NODE_ENV === 'production') {
+      failures.set(email.to.toLowerCase(), 'No hay datos de envío configurados (faltan GMAIL_USER y GMAIL_APP_PASSWORD, o RESEND_API_KEY).')
+      throw new Error('No email provider configured (GMAIL_* or RESEND_API_KEY)')
+    }
     if (devLink) devOutbox.set(email.to.toLowerCase(), devLink)
     console.info(`[email] not sent (no provider configured) → ${email.to}: ${email.subject}${devLink ? `\n${devLink}` : ''}`)
     return
@@ -63,6 +85,7 @@ export async function sendEmail(email: Email, devLink?: string) {
     await (process.env.RESEND_API_KEY ? sendWithResend(email) : sendWithGmail(email))
   } catch (error) {
     console.error('[email] sending failed', error)
+    failures.set(email.to.toLowerCase(), error instanceof Error ? error.message : String(error))
     throw new Error('No pudimos enviar el mail.')
   }
 }
