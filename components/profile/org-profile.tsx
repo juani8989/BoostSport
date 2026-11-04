@@ -1,19 +1,38 @@
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
-import { CalendarDays, Globe, Handshake, MapPin, MessageCircle, Megaphone, Route, Search, ShieldCheck } from 'lucide-react'
+import { CalendarDays, Globe, Settings2, Handshake, MapPin, MessageCircle, Megaphone, Route, Search, ShieldCheck } from 'lucide-react'
 import { getMatches } from '@/app/actions/match'
 import { useNav } from '@/components/app/nav'
-import { PartyAvatar } from '@/components/app/kit'
+import { PartyAvatar, Sheet } from '@/components/app/kit'
+import { OrgProfileForm } from '@/components/profile/org-profile-form'
+import { updateMyOrgProfile } from '@/app/actions/profile'
+import type { OrgProfile } from '@/lib/profile-types'
 import { AiScout } from '@/components/org/ai-scout'
 import { PeopleSearch } from '@/components/org/people-search'
 import type { Viewer } from '@/components/app-shell'
 
 export function OrgProfileView({ viewer }: { viewer: Viewer }) {
   const nav = useNav()
+  const router = useRouter()
   const { data: matches } = useSWR('matches', () => getMatches())
+  const [editing, setEditing] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const profile = viewer.account?.profile
   if (!profile || profile.kind === 'deportista') return null
+
+  async function save(next: OrgProfile) {
+    setPending(true)
+    setError(null)
+    const res = await updateMyOrgProfile(next)
+    setPending(false)
+    if (!res.ok) return setError(res.error)
+    setEditing(false)
+    router.refresh()
+  }
 
   const isCompany = profile.kind === 'empresa'
   const deals = matches?.filter((m) => m.dealStatus === 'aceptada').length ?? 0
@@ -54,6 +73,10 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
             </div>
           ))}
         </dl>
+        <button type="button" onClick={() => setEditing(true)} className="flex w-full items-center justify-center gap-2 rounded-full bg-secondary py-2.5 text-sm font-bold">
+          <Settings2 className="size-4" />
+          Editar perfil
+        </button>
       </section>
 
       <ul className="flex flex-col gap-2 text-sm">
@@ -167,6 +190,11 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
           Mensajes
         </button>
       </div>
+      {editing ? (
+        <Sheet title="Editar perfil" onClose={() => setEditing(false)} tall>
+          <OrgProfileForm initial={profile} pending={pending} error={error} onSubmit={save} />
+        </Sheet>
+      ) : null}
     </div>
   )
 }

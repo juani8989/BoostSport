@@ -6,6 +6,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  logging: {
+    // Dev-only call logging prints every argument, including passwords sent to sign-up and admin actions.
+    serverFunctions: false,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '4mb',

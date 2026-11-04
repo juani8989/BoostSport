@@ -7,6 +7,7 @@ import { adminChangeRole, adminCreateUser, adminDeleteUsers, getAdminUser, listA
 import { ROLES, type Role } from '@/lib/profile-types'
 import { AdminField, AdminSelect, Avatar, Button, IconButton, Modal, RoleBadge, Toggle, formatDate, roleMeta, useAdminFeedback } from '@/components/admin/admin-ui'
 import type { AdminSection } from '@/components/admin/admin-panel'
+import { ProfileProgress, ProfileReminderModal } from '@/components/admin/profile-reminder'
 import { cn } from '@/lib/utils'
 
 type SortKey = 'createdAt' | 'displayName' | 'lastSeen' | 'completeness' | 'matches'
@@ -38,6 +39,7 @@ export function AdminUserList({ section, onOpenUser }: { section: Exclude<AdminS
   const [desc, setDesc] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)
+  const [reminding, setReminding] = useState<AdminUserRow | null>(null)
 
   const label = section === 'sin-perfil' ? 'usuarios sin perfil' : roleMeta[section].plural.toLowerCase()
   const countries = useMemo(() => [...new Set((data ?? []).map((u) => u.country).filter(Boolean))].sort(), [data])
@@ -240,12 +242,7 @@ export function AdminUserList({ section, onOpenUser }: { section: Exclude<AdminS
                       <td className="px-2 py-3">{u.detail || <span className="text-muted-foreground">—</span>}</td>
                       <td className="px-2 py-3 text-muted-foreground">{[u.city, u.country].filter(Boolean).join(', ') || '—'}</td>
                       <td className="px-2 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-secondary">
-                            <span className={cn('block h-full rounded-full', u.completeness >= 70 ? 'bg-olympic-green' : u.completeness >= 40 ? 'bg-olympic-yellow' : 'bg-olympic-red')} style={{ width: `${u.completeness}%` }} />
-                          </span>
-                          <span className="text-xs tabular-nums text-muted-foreground">{u.completeness}%</span>
-                        </div>
+                        <ProfileProgress percent={u.completeness} missing={u.missing} onOpen={() => setReminding(u)} />
                       </td>
                       <td className="px-2 py-3 text-xs text-muted-foreground">
                         <p>{u.posts} publ. · {u.matches} matches</p>
@@ -294,6 +291,17 @@ export function AdminUserList({ section, onOpenUser }: { section: Exclude<AdminS
           Mostrando {rows.length} de {data?.length ?? 0} {label}
         </p>
       </div>
+
+      {reminding ? (
+        <ProfileReminderModal
+          userId={reminding.id}
+          name={reminding.displayName}
+          email={reminding.email}
+          percent={reminding.completeness}
+          missing={reminding.missing}
+          onClose={() => setReminding(null)}
+        />
+      ) : null}
 
       {creating && section !== 'sin-perfil' ? (
         <CreateUserModal

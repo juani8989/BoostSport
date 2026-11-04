@@ -8,6 +8,10 @@ import { ADMIN_ROLE, requireAdmin } from '@/lib/admin'
 import { convertProfile, emptyProfile, profileDisplayName, profileImage } from '@/lib/admin-profiles'
 import { ROLES, type AthleteProfile, type OrgProfile, type Role } from '@/lib/profile-types'
 import { userKey } from '@/lib/viewer'
+import { completenessOf, profileChecklist } from '@/lib/profile-checklist'
+import { sendEmail } from '@/lib/email'
+import { profileReminderMessage } from '@/lib/emails/profile-reminder'
+import { siteUrl } from '@/lib/site-url'
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 
@@ -34,6 +38,8 @@ export type AdminUserRow = {
   posts: number
   matches: number
   completeness: number
+  /** Profile items still empty, in the order the checklist lists them. */
+  missing: { key: string; label: string }[]
 }
 
 export type AdminOverview = {
@@ -68,13 +74,9 @@ export type AdminUserDetail = {
   reactions: number
 }
 
-function completeness(profile: AthleteProfile | OrgProfile | null) {
-  if (!profile) return 0
-  const values =
-    profile.kind === 'deportista'
-      ? [profile.firstName, profile.lastName, profile.country, profile.discipline, profile.age, profile.goals, profile.achievements, profile.studies, profile.recognitions, profile.photo, profile.summary, profile.needs.length ? 'x' : '', profile.timeline.length ? 'x' : '', Object.values(profile.socials).some(Boolean) ? 'x' : '']
-      : [profile.orgName, profile.category, profile.country, profile.city, profile.website, profile.lookingFor, profile.description, profile.logo, ...(profile.kind === 'evento' ? [profile.eventDate, profile.eventInfo?.place] : [profile.merch?.length ? 'x' : ''])]
-  return Math.round((values.filter((v) => typeof v === 'string' && v.trim()).length / values.length) * 100)
+function progressOf(profile: AthleteProfile | OrgProfile | null) {
+  const items = profileChecklist(profile)
+  return { completeness: completenessOf(items), missing: items.filter((i) => !i.done).map(({ key, label }) => ({ key, label })) }
 }
 
 async function buildRows(userIds?: string[], role?: Role): Promise<AdminUserRow[]> {
@@ -131,7 +133,7 @@ async function buildRows(userIds?: string[], role?: Role): Promise<AdminUserRow[
         lastSeen: seenBy.get(r.id)?.toISOString() ?? null,
         posts: postsBy.get(r.id) ?? 0,
         matches: matchesBy.get(keyOf(r.id)) ?? 0,
-        completeness: completeness(profile),
+        ...progressOf(profile),
       }
     })
 }
@@ -280,11 +282,12 @@ export async function adminCreateUser(input: { role: Role; name: string; email: 
   const [taken] = await db.select({ id: user.id }).from(user).where(eq(user.email, email)).limit(1)
   if (taken) return { ok: false, error: 'Ya existe un usuario con ese email.' }
 
-  const created = await auth.api.signUpEmail({ body: { email, password: input.password, name } })
-  const id = created.user.id
-  // Sign-up opens a session for the new user; the admin stays signed in as themselves.
-  await db.delete(session).where(eq(session.userId, id))
-  if (input.emailVerified) await db.update(user).set({ emailVerified: true }).where(eq(user.id, id))
+  // Created directly instead of through sign-up, so no confirmation email goes out:
+  // the admin decides whether the address counts as verified.
+  const ctx = await auth.$context
+  const created = await ctx.internalAdapter.createUser({ email, name, emailVerified: input.emailVerified }, { method: 'admin' })
+  const id = created.id
+  await ctx.internalAdapter.linkAccount({ userId: id, providerId: 'credential', accountId: id, password: await ctx.password.hash(input.password) })
   await db.insert(profiles).values({ userId: id, role: input.role, data: emptyProfile(input.role, name) })
   return { ok: true, id }
 }
@@ -409,4 +412,39 @@ export async function adminDeleteMatch(matchId: number): Promise<Result> {
   await db.delete(messages).where(eq(messages.matchId, matchId))
   await db.delete(matches).where(eq(matches.id, matchId))
   return { ok: true }
+}
+
+/**
+ * Emails the person the profile items they still have to fill in, with a button back to the app.
+ * `keys` limits the list to the items the admin picked; omitted, it sends everything missing.
+ */
+export async function adminRemindProfile(id: string, input: { keys?: string[]; note?: string } = {}): Promise<Result<{ sent: number }>> {
+  await requireAdmin()
+  const [row] = await db
+    .select({ email: user.email, name: user.name, data: profiles.data })
+    .from(user)
+    .leftJoin(profiles, eq(profiles.userId, user.id))
+    .where(eq(user.id, id))
+    .limit(1)
+  if (!row) return { ok: false, error: 'El usuario no existe.' }
+  const profile = (row.data as AthleteProfile | OrgProfile | null) ?? null
+  if (!profile) return { ok: false, error: 'El usuario no tiene perfil.' }
+
+  const missing = profileChecklist(profile).filter((i) => !i.done && (!input.keys?.length || input.keys.includes(i.key)))
+  if (!missing.length) return { ok: false, error: 'No le falta nada para completar.' }
+  const note = typeof input.note === 'string' ? input.note.trim().slice(0, 500) : ''
+
+  try {
+    const message = profileReminderMessage({
+      name: profileDisplayName(profile, row.name),
+      actions: missing.map((i) => i.action),
+      note,
+      appUrl: siteUrl(),
+      percent: completenessOf(profileChecklist(profile)),
+    })
+    await sendEmail({ to: row.email, ...message })
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'No pudimos enviar el mail.' }
+  }
+  return { ok: true, sent: missing.length }
 }

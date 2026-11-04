@@ -2,7 +2,8 @@
 
 import { useSyncExternalStore } from 'react'
 import { authClient } from '@/lib/auth-client'
-import { createProfile, getMyRole } from '@/app/actions/profile'
+import { getMyRole } from '@/app/actions/profile'
+import { registerUser, resendVerification } from '@/app/actions/register'
 import type { AthleteProfile, OrgProfile, Role } from '@/lib/profile-types'
 
 export type { Account, AthleteProfile, OrgProfile, Role, TimelineEntry } from '@/lib/profile-types'
@@ -38,36 +39,37 @@ export function useIsGuest(): boolean {
 
 export class AuthError extends Error {}
 
+export class EmailNotVerifiedError extends AuthError {
+  constructor(public email: string) {
+    super('Tenés que confirmar tu mail antes de ingresar. Te reenviamos el link: revisá tu bandeja de entrada.')
+  }
+}
+
+export type PendingVerification = { email: string; devLink?: string }
+
+/** Creates the account; it stays inactive until the person opens the link we email them. */
 export async function registerAccount(input: {
   role: Role
   email: string
   password: string
   name: string
   profile: AthleteProfile | OrgProfile
-}) {
-  const { error } = await authClient.signUp.email({
-    email: input.email.trim().toLowerCase(),
-    password: input.password,
-    name: input.name.trim(),
-  })
-  if (error) {
-    console.error('[auth] sign-up failed', error)
-    throw new AuthError(
-      error.code === 'USER_ALREADY_EXISTS' || error.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL'
-        ? 'No pudimos crear el usuario con ese email. Probá ingresar.'
-        : 'No pudimos crear el usuario. Revisá los datos.',
-    )
-  }
-
-  const result = await createProfile(input.role, input.profile)
+}): Promise<PendingVerification> {
+  const result = await registerUser(input)
   if (!result.ok) throw new AuthError(result.error)
+  return { email: result.email, devLink: result.devLink }
+}
 
-  setGuest(false)
-  refreshRoute()
+export async function resendVerificationEmail(email: string): Promise<PendingVerification> {
+  const result = await resendVerification(email)
+  if (!result.ok) throw new AuthError(result.error)
+  return { email: result.email, devLink: result.devLink }
 }
 
 export async function signIn(role: Role, email: string, password: string) {
-  const { error } = await authClient.signIn.email({ email: email.trim().toLowerCase(), password })
+  const clean = email.trim().toLowerCase()
+  const { error } = await authClient.signIn.email({ email: clean, password })
+  if (error?.code === 'EMAIL_NOT_VERIFIED') throw new EmailNotVerifiedError(clean)
   if (error) throw new AuthError('Email o contraseña incorrectos.')
 
   const actualRole = await getMyRole()

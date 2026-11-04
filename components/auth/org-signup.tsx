@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { AuthError, registerAccount, type Role } from '@/lib/auth-store'
+import { AuthError, registerAccount, type PendingVerification, type Role } from '@/lib/auth-store'
 import { countries, roleConfig } from '@/lib/roles'
 import { Field, FormError, TextareaField, validateCredentials } from '@/components/auth/field'
+import { CheckEmail } from '@/components/auth/check-email'
 import { cn } from '@/lib/utils'
 
 export function OrgSignup({ role }: { role: Exclude<Role, 'deportista'> }) {
@@ -23,6 +24,7 @@ export function OrgSignup({ role }: { role: Exclude<Role, 'deportista'> }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [verification, setVerification] = useState<PendingVerification | null>(null)
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -42,7 +44,7 @@ export function OrgSignup({ role }: { role: Exclude<Role, 'deportista'> }) {
 
     setPending(true)
     try {
-      await registerAccount({
+      const sent = await registerAccount({
         role,
         email: form.email,
         password: form.password,
@@ -58,10 +60,16 @@ export function OrgSignup({ role }: { role: Exclude<Role, 'deportista'> }) {
           eventDate: isEvent ? form.eventDate : undefined,
         },
       })
+      setVerification(sent)
+      setPending(false)
     } catch (error) {
       setFormError(error instanceof AuthError ? error.message : 'No pudimos crear el usuario.')
       setPending(false)
     }
+  }
+
+  if (verification) {
+    return <CheckEmail pending={verification} accent={roleConfig[role].button} onBack={() => setVerification(null)} />
   }
 
   return (

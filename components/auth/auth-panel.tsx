@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { AuthError, signIn, type Role } from '@/lib/auth-store'
+import { AuthError, EmailNotVerifiedError, signIn, type PendingVerification, type Role } from '@/lib/auth-store'
+import { pendingDevLink } from '@/app/actions/register'
 import { roleConfig } from '@/lib/roles'
 import { Field, FormError, validateCredentials } from '@/components/auth/field'
 import { OrgSignup } from '@/components/auth/org-signup'
 import { AthleteSignup } from '@/components/auth/athlete-signup'
+import { CheckEmail } from '@/components/auth/check-email'
 import { cn } from '@/lib/utils'
 
 function SignInForm({ role }: { role: Role }) {
@@ -15,6 +17,7 @@ function SignInForm({ role }: { role: Role }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [verification, setVerification] = useState<PendingVerification | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,9 +29,18 @@ function SignInForm({ role }: { role: Role }) {
     try {
       await signIn(role, email, password)
     } catch (error) {
-      setFormError(error instanceof AuthError ? error.message : 'No pudimos ingresar. Probá de nuevo.')
+      if (error instanceof EmailNotVerifiedError) {
+        // Sign-in already re-sent the link; show the same screen as after sign-up.
+        setVerification({ email: error.email, devLink: await pendingDevLink(error.email) })
+      } else {
+        setFormError(error instanceof AuthError ? error.message : 'No pudimos ingresar. Probá de nuevo.')
+      }
       setPending(false)
     }
+  }
+
+  if (verification) {
+    return <CheckEmail pending={verification} accent={roleConfig[role].button} onBack={() => setVerification(null)} />
   }
 
   return (
