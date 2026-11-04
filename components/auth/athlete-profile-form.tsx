@@ -5,6 +5,7 @@ import { BadgeCheck, Plus, X } from 'lucide-react'
 import type { AthleteProfile } from '@/lib/auth-store'
 import { disciplines, needOptions } from '@/lib/roles'
 import { Field, FormError, TextareaField } from '@/components/auth/field'
+import { ImageInput } from '@/components/profile/org-profile-form'
 import { cn } from '@/lib/utils'
 
 export function AthleteProfileForm({
@@ -66,6 +67,9 @@ export function AthleteProfileForm({
           Completá tu perfil: es lo que van a ver las marcas y los organizadores.
         </p>
       )}
+
+      <ImageInput label="Foto de perfil" value={p.photo} onChange={(v) => set('photo', v)} round />
+      <TextareaField label="Resumen" placeholder="Contá en pocas líneas quién sos como deportista" value={p.summary ?? ''} onChange={(e) => set('summary', e.target.value)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Edad" type="number" inputMode="numeric" min={8} max={90} value={p.age} onChange={text('age')} error={errors.age} />

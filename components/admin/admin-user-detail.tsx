@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { BadgeCheck, Braces, CalendarDays, Globe, Handshake, KeyRound, Loader2, LogOut, MapPin, MessageCircle, Newspaper, Pencil, ShieldOff, Trash2, UserCog, X } from 'lucide-react'
+import { BadgeCheck, Braces, CalendarDays, CircleCheck, CircleDashed, Mail, Globe, Handshake, KeyRound, Loader2, LogOut, MapPin, MessageCircle, Newspaper, Pencil, ShieldOff, Trash2, UserCog, X } from 'lucide-react'
 import {
   adminChangeRole,
   adminDeleteComment,
@@ -21,6 +21,8 @@ import { ROLES, type AthleteProfile, type OrgProfile, type Role } from '@/lib/pr
 import { AdminField, AdminSelect, Avatar, Button, IconButton, RoleBadge, Section, Toggle, formatDate, roleMeta, useAdminFeedback } from '@/components/admin/admin-ui'
 import { AdminProfileForm } from '@/components/admin/admin-profile-form'
 import { refreshAdminData } from '@/components/admin/admin-user-list'
+import { ProfileReminderModal, progressTone } from '@/components/admin/profile-reminder'
+import { completenessOf, profileChecklist } from '@/lib/profile-checklist'
 import { cn } from '@/lib/utils'
 
 type Tab = 'perfil' | 'editar' | 'cuenta' | 'actividad' | 'avanzado'
@@ -182,8 +184,52 @@ function ProfileView({ data, onEdit }: { data: Detail; onEdit: () => void }) {
         </dl>
       </div>
 
+      <ProfileCompleteness data={data} />
+
       {p.kind === 'deportista' ? <AthleteFacts p={p} /> : <OrgFacts p={p} />}
     </div>
+  )
+}
+
+function ProfileCompleteness({ data }: { data: Detail }) {
+  const [open, setOpen] = useState(false)
+  const items = profileChecklist(data.profile)
+  const percent = completenessOf(items)
+  const missing = items.filter((i) => !i.done)
+  return (
+    <Section
+      title={`Perfil al ${percent}%`}
+      description={missing.length ? `Le faltan ${missing.length} de ${items.length} puntos` : 'Tiene todo completo'}
+      actions={
+        missing.length ? (
+          <Button size="sm" variant="primary" onClick={() => setOpen(true)}>
+            <Mail className="size-3.5" /> Pedirle por mail
+          </Button>
+        ) : null
+      }
+    >
+      <div className="mb-4 h-2 overflow-hidden rounded-full bg-secondary">
+        <div className={cn('h-full rounded-full', progressTone(percent))} style={{ width: `${percent}%` }} />
+      </div>
+      <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+        {items.map((i) => (
+          <li key={i.key} className={cn('flex items-center gap-2 text-sm', i.done ? 'text-muted-foreground' : 'font-semibold')}>
+            {i.done ? <CircleCheck className="size-4 shrink-0 text-olympic-green" /> : <CircleDashed className="size-4 shrink-0 text-olympic-yellow" />}
+            {i.label}
+          </li>
+        ))}
+      </ul>
+      {open ? (
+        <ProfileReminderModal
+          userId={data.user.id}
+          name={profileDisplayName(data.profile, data.user.name)}
+          email={data.user.email}
+          percent={percent}
+          missing={missing.map(({ key, label }) => ({ key, label }))}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </Section>
   )
 }
 

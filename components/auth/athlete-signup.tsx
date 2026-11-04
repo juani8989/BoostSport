@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { ArrowLeft, ExternalLink, Loader2, Search, ShieldAlert, UserX } from 'lucide-react'
-import { AuthError, registerAccount, type AthleteProfile } from '@/lib/auth-store'
+import { AuthError, registerAccount, type AthleteProfile, type PendingVerification } from '@/lib/auth-store'
 import { countries, disciplines } from '@/lib/roles'
 import { Field, FormError, validateCredentials } from '@/components/auth/field'
 import { SelfieCapture } from '@/components/auth/selfie-capture'
 import { AthleteProfileForm } from '@/components/auth/athlete-profile-form'
+import { CheckEmail } from '@/components/auth/check-email'
 import type { AthleteCandidate } from '@/app/api/athlete-search/route'
 
 type Step = 'datos' | 'buscando' | 'candidatos' | 'selfie' | 'verificando' | 'perfil'
@@ -51,6 +52,7 @@ export function AthleteSignup() {
   const [verifyNote, setVerifyNote] = useState<string | null>(null)
   const [profile, setProfile] = useState<AthleteProfile | null>(null)
   const [pending, setPending] = useState(false)
+  const [verification, setVerification] = useState<PendingVerification | null>(null)
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const base = () => emptyProfile(form.firstName.trim(), form.lastName.trim(), form.country.trim(), form.discipline.trim())
@@ -137,17 +139,23 @@ export function AthleteSignup() {
     setPending(true)
     setError(null)
     try {
-      await registerAccount({
+      const sent = await registerAccount({
         role: 'deportista',
         email: form.email,
         password: form.password,
         name: `${finalProfile.firstName} ${finalProfile.lastName}`,
         profile: finalProfile,
       })
+      setVerification(sent)
+      setPending(false)
     } catch (err) {
       setError(err instanceof AuthError ? err.message : 'No pudimos crear el usuario.')
       setPending(false)
     }
+  }
+
+  if (verification) {
+    return <CheckEmail pending={verification} onBack={() => setVerification(null)} />
   }
 
   const visibleStep = step === 'buscando' ? 'datos' : step === 'verificando' ? 'selfie' : step

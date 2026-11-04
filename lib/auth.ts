@@ -1,5 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { pool } from '@/lib/db'
+import { sendEmail } from '@/lib/email'
+import { verifyEmailMessage } from '@/lib/emails/verify-email'
 
 export const auth = betterAuth({
   database: pool,
@@ -12,7 +14,22 @@ export const auth = betterAuth({
         : process.env.V0_RUNTIME_URL),
   emailAndPassword: {
     enabled: true,
-    autoSignIn: true,
+    // New accounts can't sign in until they confirm their email.
+    requireEmailVerification: true,
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 60 * 60 * 24,
+    sendVerificationEmail: async ({ user, url }) => {
+      // Land on the app with the "account confirmed" notice. Set here rather than as the
+      // sign-in callbackURL, which would also redirect every regular sign-in to it.
+      const link = new URL(url)
+      if ((link.searchParams.get('callbackURL') ?? '/') === '/') link.searchParams.set('callbackURL', '/?verificado=1')
+      const message = verifyEmailMessage({ name: user.name, url: link.toString() })
+      await sendEmail({ to: user.email, ...message }, link.toString())
+    },
   },
   trustedOrigins: [
     ...(process.env.NODE_ENV === 'development'
