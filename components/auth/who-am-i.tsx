@@ -55,6 +55,9 @@ function RoleBackdrop({
             <img
               key={image.src}
               src={image.src}
+              srcSet={image.srcSet}
+              sizes="100vw"
+              decoding="async"
               alt=""
               className={cn(
                 'absolute inset-0 size-full object-cover transition-[opacity,transform] duration-700 ease-out',

@@ -2,18 +2,24 @@ import type { Role } from '@/lib/auth-store'
 
 export type LandingPhoto = {
   src: string
+  /** 800 px for phones, 1280 px for larger screens; the browser downloads only one. */
+  srcSet: string
   position: string
   caption?: string
   // Autor y licencia (Wikimedia Commons). CC BY / BY-SA exigen citarlos.
   credit?: string
 }
 
+const sized = (stem: string) => ({ src: `${stem}-1280.webp`, srcSet: `${stem}-800.webp 800w, ${stem}-1280.webp 1280w` })
+
 const commons = (path: string, caption: string, credit: string, position = 'object-center'): LandingPhoto => ({
-  src: `/images/landing/${path}.jpg`,
+  ...sized(`/images/landing/${path}`),
   position,
   caption,
   credit,
 })
+
+const own = (name: string, position = 'object-center'): LandingPhoto => ({ ...sized(`/images/${name}`), position })
 
 export const landingPhotos: Record<Role, LandingPhoto[]> = {
   deportista: [
@@ -26,8 +32,8 @@ export const landingPhotos: Record<Role, LandingPhoto[]> = {
     commons('athletes/michael-phelps', 'Michael Phelps · Estados Unidos · Río 2016', 'Fernando Frazão/Agência Brasil · CC BY 3.0 BR'),
     commons('athletes/yulimar-rojas', 'Yulimar Rojas · Venezuela', 'Yann Caradec · CC BY-SA 2.0', 'object-[50%_25%]'),
     commons('athletes/judo-paris-2024', 'Judo por equipos · Francia vs. Corea · París 2024', 'Daieuxetdailleurs · CC BY 4.0'),
-    { src: '/images/real-athlete.webp', position: 'object-[30%_30%]' },
-    { src: '/images/real-athlete-2.webp', position: 'object-[50%_30%]' },
+    own('real-athlete', 'object-[30%_30%]'),
+    own('real-athlete-2', 'object-[50%_30%]'),
   ],
   empresa: [
     commons('sponsors/coca-cola-paris-2024', 'Coca-Cola · París 2024', 'Simon Pléau · CC BY 4.0'),
@@ -38,9 +44,9 @@ export const landingPhotos: Record<Role, LandingPhoto[]> = {
     commons('sponsors/yonex-badminton', 'Yonex · bádminton', 'Nardisoero · CC BY-SA 4.0'),
     commons('sponsors/wilson-us-open', 'Wilson · US Open', 'Spyro92 · CC BY-SA 4.0'),
     commons('sponsors/asics', 'Asics', 'LeDroider · CC0'),
-    { src: '/images/real-sponsor.webp', position: 'object-center' },
-    { src: '/images/real-sponsor-2.webp', position: 'object-center' },
-    { src: '/images/real-sponsor-3.webp', position: 'object-[50%_40%]' },
+    own('real-sponsor'),
+    own('real-sponsor-2'),
+    own('real-sponsor-3', 'object-[50%_40%]'),
   ],
   evento: [
     commons('events/fifa-world-cup-2014', 'FIFA · final del Mundial 2014', 'Danilo Borges/copa2014.gov.br · CC BY 3.0'),
@@ -52,8 +58,8 @@ export const landingPhotos: Record<Role, LandingPhoto[]> = {
     commons('events/ittf-worlds', 'ITTF · Mundial de Tenis de Mesa, París 2013', 'Pierre-Yves Beaudouin · CC BY-SA 3.0'),
     commons('events/world-athletics-2023', 'World Athletics · Maratón, Budapest 2023', 'Narnabi · CC BY-SA 4.0'),
     commons('events/fifa-world-cup-2022', 'FIFA · Mundial Qatar 2022', 'Republic of Korea · CC BY-SA 2.0'),
-    { src: '/images/real-event.webp', position: 'object-center' },
-    { src: '/images/real-event-2.webp', position: 'object-center' },
-    { src: '/images/real-event-3.webp', position: 'object-center' },
+    own('real-event'),
+    own('real-event-2'),
+    own('real-event-3'),
   ],
 }
