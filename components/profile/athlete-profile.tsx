@@ -3,27 +3,36 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR, { mutate as globalMutate } from 'swr'
-import { BadgeCheck, Handshake, HandHeart, Heart, Loader2, MessageCircle, Settings2, Target, Trophy, UserPlus, UserCheck } from 'lucide-react'
-import { getAthleteProfile, updateMyAthleteProfile } from '@/app/actions/athlete'
+import { ArrowLeft, BadgeCheck, Handshake, HandHeart, Heart, Loader2, MessageCircle, Settings2, Target, Trophy, UserPlus, UserCheck } from 'lucide-react'
+import { getAthleteMentions, getAthleteProfile, updateMyAthleteProfile } from '@/app/actions/athlete'
 import { toggleFollow, toggleReaction } from '@/app/actions/social'
 import { swipe } from '@/app/actions/match'
 import { useNav } from '@/components/app/nav'
-import { PartyAvatar, Sheet, compactNumber } from '@/components/app/kit'
+import { PartyAvatar, Sheet, compactNumber, timeAgo } from '@/components/app/kit'
 import { AthleteProfileForm } from '@/components/auth/athlete-profile-form'
+import { PressMentions } from '@/components/profile/press-mentions'
+import { PostViewer } from '@/components/posts/post-viewer'
+import { ZoomableImage } from '@/components/posts/zoomable-image'
 import type { AthleteProfile } from '@/lib/profile-types'
 import { cn } from '@/lib/utils'
+import { load } from '@/lib/load'
 
-type Section = 'publicaciones' | 'fotos' | 'metas' | 'logros'
+type Section = 'publicaciones' | 'menciones' | 'metas' | 'logros'
 
-export function AthleteProfileView({ profileKey }: { profileKey: string }) {
+const sectionLabel: Record<Section, string> = { publicaciones: 'Publicaciones', menciones: 'Menciones', metas: 'Metas', logros: 'Logros' }
+
+export function AthleteProfileView({ profileKey, initialPost }: { profileKey: string; initialPost?: string }) {
   const nav = useNav()
   const router = useRouter()
-  const { data, isLoading, mutate } = useSWR(['athlete', profileKey], () => getAthleteProfile(profileKey))
+  const { data, isLoading, mutate } = useSWR(['athlete', profileKey], () => load('getAthleteProfile', profileKey))
   const [section, setSection] = useState<Section>('publicaciones')
+  const { data: extra, mutate: mutateExtra, isLoading: loadingExtra } = useSWR(section === 'menciones' ? ['athlete-mentions', profileKey] : null, () => load('getAthleteMentions', profileKey))
   const [editing, setEditing] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [matchNote, setMatchNote] = useState<string | null>(null)
+  const [openPost, setOpenPost] = useState<string | null>(initialPost ?? null)
+  const [openPhoto, setOpenPhoto] = useState<{ src: string; caption: string } | null>(null)
 
   if (isLoading) {
     return (
@@ -79,6 +88,17 @@ export function AthleteProfileView({ profileKey }: { profileKey: string }) {
     { label: 'Apoyos', value: data.stats.apoyos },
   ]
 
+  // Photos with a credit come from the press; the rest were uploaded by the athlete.
+  const ownPhotos = (p.gallery ?? []).filter((g) => !g.credit)
+  const pressPhotos = (p.gallery ?? []).filter((g) => g.credit)
+  const uploads = [
+    ...data.posts.map((post) => ({ id: post.id, image: post.image, text: post.body, likes: post.likes as number | null, isPost: true })),
+    ...ownPhotos.map((photo) => ({ id: photo.src, image: photo.src as string | null, text: photo.caption, likes: null, isPost: false })),
+  ]
+  const mentions = extra?.mentions ?? []
+  const news = extra?.news ?? []
+  const mentionCount = mentions.length + pressPhotos.length + (p.press?.length ?? 0) + news.length
+
   const goals = p.goals.split('\n').map((g) => g.trim()).filter(Boolean)
   const achievements = [p.achievements, p.recognitions].join('\n').split('\n').map((a) => a.trim()).filter(Boolean)
 
@@ -100,7 +120,7 @@ export function AthleteProfileView({ profileKey }: { profileKey: string }) {
         <dl className="grid w-full grid-cols-4 gap-1 rounded-2xl bg-card p-3">
           {stats.map((s) => (
             <div key={s.label} className="flex flex-col items-center">
-              <dd className="font-display text-2xl font-semibold">{compactNumber(s.value)}</dd>
+              <dd className="font-display text-2xl font-semibold">{s.value < 0 ? '—' : compactNumber(s.value)}</dd>
               <dt className="text-[11px] text-muted-foreground">{s.label}</dt>
             </div>
           ))}
@@ -185,36 +205,45 @@ export function AthleteProfileView({ profileKey }: { profileKey: string }) {
       ) : null}
 
       <div role="tablist" aria-label="Contenido del perfil" className="sticky top-0 z-10 flex border-b border-border bg-background">
-        {((p.gallery?.length ? ['publicaciones', 'fotos', 'metas', 'logros'] : ['publicaciones', 'metas', 'logros']) as Section[]).map((s) => (
+        {(['publicaciones', 'menciones', 'metas', 'logros'] as Section[]).map((s) => (
           <button
             key={s}
             type="button"
             role="tab"
             aria-selected={section === s}
             onClick={() => setSection(s)}
-            className={cn('flex-1 border-b-2 py-3 text-xs font-bold uppercase tracking-wide', section === s ? 'border-olympic-blue text-foreground' : 'border-transparent text-muted-foreground')}
+            className={cn('flex-1 border-b-2 py-3 text-[11px] font-bold uppercase tracking-wide', section === s ? 'border-olympic-blue text-foreground' : 'border-transparent text-muted-foreground')}
           >
-            {s}
+            {sectionLabel[s]}
+            {s === 'menciones' && mentionCount ? <span className="ml-1 text-muted-foreground">{mentionCount}</span> : null}
           </button>
         ))}
       </div>
 
       <div className="px-4 py-4">
         {section === 'publicaciones' ? (
-          data.posts.length ? (
+          uploads.length ? (
             <ul className="grid grid-cols-3 gap-1">
-              {data.posts.map((post) => (
-                <li key={post.id} className="relative aspect-[3/4] overflow-hidden rounded-md bg-card">
-                  {post.image ? (
+              {uploads.map((item) => (
+                <li key={item.id} className="relative aspect-[3/4] overflow-hidden rounded-md bg-card">
+                  <button
+                    type="button"
+                    onClick={() => (item.isPost ? setOpenPost(item.id) : setOpenPhoto({ src: item.image ?? '', caption: item.text }))}
+                    aria-label={`Abrir: ${item.text.slice(0, 60)}`}
+                    className="absolute inset-0 z-10"
+                  />
+                  {item.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img loading="lazy" decoding="async" src={post.image} alt={post.body.slice(0, 60)} className="absolute inset-0 size-full object-cover" />
+                    <img loading="lazy" decoding="async" src={item.image} alt={item.text.slice(0, 60)} className="absolute inset-0 size-full object-cover" />
                   ) : (
-                    <p className="line-clamp-6 p-2 text-[11px] leading-snug">{post.body}</p>
+                    <p className="line-clamp-6 p-2 text-[11px] leading-snug">{item.text}</p>
                   )}
-                  <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-semibold">
-                    <Heart className="size-3" />
-                    {compactNumber(post.likes)}
-                  </span>
+                  {item.likes !== null ? (
+                    <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-semibold">
+                      <Heart className="size-3" />
+                      {compactNumber(item.likes)}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -223,30 +252,64 @@ export function AthleteProfileView({ profileKey }: { profileKey: string }) {
           )
         ) : null}
 
-        {section === 'fotos' && p.gallery?.length ? (
-          <ul className="grid grid-cols-2 gap-2">
-            {p.gallery.map((photo, i) => (
-              <li key={photo.src} className={cn('flex flex-col gap-1', i === 0 && 'col-span-2')}>
-                <div className={cn('relative overflow-hidden rounded-xl bg-card', i === 0 ? 'aspect-video' : 'aspect-square')}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img loading="lazy" decoding="async" src={photo.src} alt={photo.caption} className="absolute inset-0 size-full object-cover" />
-                </div>
-                <p className="text-xs leading-snug">{photo.caption}</p>
-                {photo.credit ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    Foto:{' '}
-                    {photo.sourceUrl ? (
-                      <a href={photo.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-                        {photo.credit}
-                      </a>
-                    ) : (
-                      photo.credit
-                    )}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+        {section === 'menciones' ? (
+            <div className="flex flex-col gap-6">
+              {loadingExtra ? (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" /> Buscando menciones y noticias…
+                </p>
+              ) : null}
+              <PressMentions press={p.press ?? []} news={news} isMe={data.isMe} onChanged={() => (mutate(), mutateExtra(), router.refresh())} />
+              {mentions.length ? (
+                <section className="flex flex-col gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">En publicaciones</h2>
+                <ul className="flex flex-col gap-3">
+                  {mentions.map((m) => (
+                    <li key={m.id} className="flex flex-col gap-2 rounded-xl bg-card p-3">
+                      <button type="button" onClick={() => nav.openProfile(m.author.key)} className="flex items-center gap-2 self-start text-left">
+                        <PartyAvatar party={m.author} className="size-8" />
+                        <span className="flex flex-col leading-tight">
+                          <span className="text-sm font-semibold">{m.author.name}</span>
+                          <span className="text-xs text-muted-foreground">{timeAgo(m.createdAt)}</span>
+                        </span>
+                      </button>
+                      <p className="text-sm leading-relaxed">{m.body}</p>
+                      {m.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img loading="lazy" decoding="async" src={m.image} alt="" className="aspect-video w-full rounded-lg object-cover" />
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                </section>
+              ) : null}
+              {pressPhotos.length ? (
+                <section className="flex flex-col gap-2">
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Fotos en la prensa</h2>
+                  <ul className="grid grid-cols-2 gap-2">
+                    {pressPhotos.map((photo, i) => (
+                      <li key={photo.src} className={cn('flex flex-col gap-1', i === 0 && 'col-span-2')}>
+                        <div className={cn('relative overflow-hidden rounded-xl bg-card', i === 0 ? 'aspect-video' : 'aspect-square')}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img loading="lazy" decoding="async" src={photo.src} alt={photo.caption} className="absolute inset-0 size-full object-cover" />
+                        </div>
+                        <p className="text-xs leading-snug">{photo.caption}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Foto:{' '}
+                          {photo.sourceUrl ? (
+                            <a href={photo.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                              {photo.credit}
+                            </a>
+                          ) : (
+                            photo.credit
+                          )}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
         ) : null}
 
         {section === 'metas' ? (
@@ -291,6 +354,17 @@ export function AthleteProfileView({ profileKey }: { profileKey: string }) {
           </div>
         ) : null}
       </div>
+
+      {openPost ? <PostViewer profileKey={data.key} startId={openPost} onClose={() => (setOpenPost(null), mutate())} /> : null}
+      {openPhoto ? (
+        <div className="absolute inset-0 z-50 bg-background" role="dialog" aria-modal="true" aria-label="Foto">
+          <ZoomableImage src={openPhoto.src} alt={openPhoto.caption} eager />
+          <button type="button" onClick={() => setOpenPhoto(null)} aria-label="Cerrar" className="absolute left-4 top-4 z-20 flex size-9 items-center justify-center rounded-full bg-background/60 backdrop-blur">
+            <ArrowLeft className="size-5" />
+          </button>
+          {openPhoto.caption ? <p className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background to-transparent p-4 pt-10 text-sm">{openPhoto.caption}</p> : null}
+        </div>
+      ) : null}
 
       {editing && nav.account?.profile.kind === 'deportista' ? (
         <Sheet title="Mis datos" onClose={() => setEditing(false)} tall>

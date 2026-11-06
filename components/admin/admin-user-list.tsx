@@ -9,6 +9,7 @@ import { AdminField, AdminSelect, Avatar, Button, IconButton, Modal, RoleBadge, 
 import type { AdminSection } from '@/components/admin/admin-panel'
 import { ProfileProgress, ProfileReminderModal } from '@/components/admin/profile-reminder'
 import { cn } from '@/lib/utils'
+import { load } from '@/lib/load'
 
 type SortKey = 'createdAt' | 'displayName' | 'lastSeen' | 'completeness' | 'matches'
 
@@ -22,7 +23,7 @@ const sortOptions: { value: SortKey; label: string }[] = [
 
 /** Fetches a user's detail ahead of the click; the drawer then opens with data ready. */
 export function prefetchAdminUser(id: string) {
-  preload(`admin:user:${id}`, () => getAdminUser(id))
+  preload(`admin:user:${id}`, () => load('getAdminUser', id))
 }
 
 export function refreshAdminData() {
@@ -30,7 +31,7 @@ export function refreshAdminData() {
 }
 
 export function AdminUserList({ section, onOpenUser }: { section: Exclude<AdminSection, 'resumen'>; onOpenUser: (id: string, tab?: 'perfil' | 'editar') => void }) {
-  const { data, isLoading } = useSWR(`admin:users:${section}`, () => listAdminUsers(section))
+  const { data, isLoading } = useSWR(`admin:users:${section}`, () => load('listAdminUsers', section))
   const { confirm, toast } = useAdminFeedback()
   const [query, setQuery] = useState('')
   const [verified, setVerified] = useState<'todos' | 'si' | 'no'>('todos')

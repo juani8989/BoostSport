@@ -142,3 +142,19 @@ export const messages = pgTable('messages', {
   meta: jsonb('meta'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
+
+export const userSettings = pgTable('user_settings', {
+  userId: text('userId')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  data: jsonb('data').notNull().default({}),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+})
+
+/** Optional audio track of a post (a song or voice clip the author uploaded). */
+export const postAudio = pgTable('post_audio', {
+  postId: integer('postId').primaryKey(),
+  audioUrl: text('audioUrl').notNull(),
+  audioName: text('audioName').notNull().default(''),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+})

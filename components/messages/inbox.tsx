@@ -5,10 +5,11 @@ import { Handshake, Loader2, MessageCircle } from 'lucide-react'
 import { getMatches } from '@/app/actions/match'
 import { useNav } from '@/components/app/nav'
 import { PartyAvatar, timeAgo } from '@/components/app/kit'
+import { load } from '@/lib/load'
 
 export function Inbox() {
   const nav = useNav()
-  const { data, isLoading } = useSWR('matches', () => getMatches(), { refreshInterval: 8000 })
+  const { data, isLoading } = useSWR('matches', () => load('getMatches'), { refreshInterval: 8000 })
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto px-4 pb-24 pt-20">

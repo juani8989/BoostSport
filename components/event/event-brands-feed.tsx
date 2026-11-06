@@ -8,10 +8,11 @@ import { InviteButton } from '@/components/org/invite-button'
 import { Sheet } from '@/components/app/kit'
 import { SearchBox } from '@/components/event/event-athletes-feed'
 import { ContractSheet } from '@/components/event/contract-sheet'
+import { load } from '@/lib/load'
 
 export function EventBrandsFeed() {
   const [query, setQuery] = useState('')
-  const { data, isLoading, mutate } = useSWR(['event-brands', query], ([, q]) => listBrands(q))
+  const { data, isLoading, mutate } = useSWR(['event-brands', query], ([, q]) => load('listBrands', q))
   const [detail, setDetail] = useState<BrandCard | null>(null)
   const [contract, setContract] = useState<BrandCard | null>(null)
 
