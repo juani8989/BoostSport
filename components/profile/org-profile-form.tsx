@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { ImagePlus, Plus, Trash2 } from 'lucide-react'
 import type { MerchItem, OrgProfile } from '@/lib/profile-types'
 import { countries } from '@/lib/roles'
+import { storeMedia } from '@/lib/upload'
 import { compressImage } from '@/components/app/kit'
 import { Field, FormError, TextareaField } from '@/components/auth/field'
 import { cn } from '@/lib/utils'
@@ -47,7 +48,7 @@ export function ImageInput({ label, value, onChange, round }: { label: string; v
           if (!file) return
           try {
             setError(null)
-            onChange(await compressImage(file, 600))
+            onChange(await storeMedia('profile', await compressImage(file, 600)))
           } catch {
             setError('No se pudo leer la imagen.')
           }

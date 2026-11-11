@@ -8,7 +8,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!Number.isInteger(id) || id <= 0) return new Response('Not found', { status: 404 })
   try {
     const [row] = await db.select({ audioUrl: postAudio.audioUrl }).from(postAudio).where(eq(postAudio.postId, id)).limit(1)
-    return row ? dataUrlResponse(row.audioUrl) : new Response('Not found', { status: 404 })
+    if (!row) return new Response('Not found', { status: 404 })
+    return row.audioUrl.startsWith('data:') ? dataUrlResponse(row.audioUrl) : Response.redirect(row.audioUrl, 302)
   } catch {
     return new Response('Not found', { status: 404 })
   }

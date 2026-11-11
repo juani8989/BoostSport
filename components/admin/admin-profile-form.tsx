@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, ImagePlus, Plus, Trash2 } from 'lucide-react'
 import type { AthleteProfile, OrgProfile } from '@/lib/profile-types'
 import { countries, disciplines, needOptions } from '@/lib/roles'
+import { storeMedia } from '@/lib/upload'
 import { compressImage } from '@/components/app/kit'
 import { AdminField, AdminSelect, AdminTextarea, Button, IconButton, Section, Toggle } from '@/components/admin/admin-ui'
 import { cn } from '@/lib/utils'
@@ -83,7 +84,7 @@ function ImagePicker({ label, value, onChange, round }: { label: string; value?:
             if (!file) return
             try {
               setError(null)
-              onChange(await compressImage(file, 800))
+              onChange(await storeMedia('profile', await compressImage(file, 800)))
             } catch {
               setError('No se pudo leer la imagen.')
             }
