@@ -339,15 +339,3 @@ export async function respondOffer(messageId: number, accept: boolean): Promise<
   })
   return { ok: true }
 }
-
-/** Takes back the last decision in Match, as long as it didn't turn into a match. */
-export async function undoSwipe(targetKey: string): Promise<Result> {
-  const viewer = await requireViewer()
-  if (typeof targetKey !== 'string' || !/^(user:[\w-]+|seed:(co|at)-[a-z]+)$/.test(targetKey)) return { ok: false, error: 'Perfil inválido.' }
-  const athleteKey = viewer.role === 'deportista' ? viewer.key : targetKey
-  const orgKey = viewer.role === 'deportista' ? targetKey : viewer.key
-  const [existing] = await db.select({ id: matches.id }).from(matches).where(and(eq(matches.athleteKey, athleteKey), eq(matches.orgKey, orgKey))).limit(1)
-  if (existing) return { ok: false, error: 'Ya hicieron match: escribile desde Mensajes.' }
-  await db.delete(swipes).where(and(eq(swipes.userId, viewer.id), eq(swipes.targetId, targetKey)))
-  return { ok: true }
-}

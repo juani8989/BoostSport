@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
-import { ChevronDown, ChevronUp, Heart, Info, Loader2, MessageCircle, RotateCcw, Sparkles, Undo2, X } from 'lucide-react'
-import { getDeck, swipe, undoSwipe, type DeckCard } from '@/app/actions/match'
+import { Heart, Info, Loader2, MessageCircle, RotateCcw, Sparkles, X } from 'lucide-react'
+import { getDeck, swipe, type DeckCard } from '@/app/actions/match'
 import { useNav } from '@/components/app/nav'
 import { PartyAvatar } from '@/components/app/kit'
 import { useCheer } from '@/components/app/cheer'
@@ -28,15 +28,14 @@ export function MatchDeck() {
   const [refreshing, setRefreshing] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [matched, setMatched] = useState<{ card: DeckCard; matchId?: number } | null>(null)
-  const [last, setLast] = useState<DeckCard | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [cheer, fireCheer] = useCheer()
+  const [intro, setIntro] = useState(true)
   const pointer = useRef<{ x: number; y: number; t: number; grabTop: boolean; moved: boolean } | null>(null)
   const samples = useRef<{ x: number; t: number }[]>([])
 
   const card = data?.[0]
   const isAthlete = nav.role === 'deportista'
-  const remaining = data?.length ?? 0
 
   useEffect(() => {
     if (!toast) return
@@ -56,7 +55,6 @@ export function MatchDeck() {
         mutate((prev) => prev?.slice(1), { revalidate: false })
         setLeaving(null)
         setDrag({ x: 0, y: 0 })
-        setLast(card)
         if (!res.ok) return setToast(res.error)
         if (res.matched) {
           setMatched({ card, matchId: res.matchId })
@@ -68,22 +66,13 @@ export function MatchDeck() {
     [card, leaving, mutate, fireCheer],
   )
 
-  async function undo() {
-    if (!last || leaving) return
-    const res = await undoSwipe(last.key)
-    if (!res.ok) return setToast(res.error)
-    mutate((prev) => [last, ...(prev ?? []).filter((c) => c.key !== last.key)], { revalidate: false })
-    setLast(null)
-  }
-
-  // Keyboard on computers: ← pass, → like, ↑ details, Backspace undo.
+  // Keyboard on computers: ← pass, → like, ↑ details.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (matched || (e.target as HTMLElement)?.closest('input, textarea')) return
       if (e.key === 'ArrowLeft') decide('pass')
       else if (e.key === 'ArrowRight') decide('like')
       else if (e.key === 'ArrowUp') setExpanded((v) => !v)
-      else if (e.key === 'Backspace') undo()
       else return
       e.preventDefault()
     }
@@ -134,14 +123,19 @@ export function MatchDeck() {
   const lift = Math.min(1, Math.abs(progress))
 
   return (
-    <div className="relative flex h-full flex-col gap-3 px-4 pb-24 pt-20 md:pb-6">
-      <header className="flex items-end justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-display text-3xl font-semibold">Match</h1>
-          <p className="text-sm text-muted-foreground">{isAthlete ? 'Elegí las marcas que querés que te patrocinen.' : 'Elegí a los deportistas que querés como cara de tu marca.'}</p>
+    <div className="relative flex h-full flex-col gap-3 px-3 pb-24 pt-16 md:px-4 md:pb-5 md:pt-4">
+      <h1 className="sr-only">Match</h1>
+      {intro ? (
+        <div
+          aria-hidden
+          onAnimationEnd={(e) => e.target === e.currentTarget && setIntro(false)}
+          className="animate-match-intro-backdrop pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+        >
+          <span className="animate-match-intro select-none bg-[linear-gradient(90deg,#0081c8,#fcb131,#00a651,#ee334e)] bg-clip-text font-display text-6xl font-black italic tracking-tight text-transparent drop-shadow-xl md:text-8xl">
+            ¡MATCHEÁ!
+          </span>
         </div>
-        {remaining ? <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{remaining} por ver</span> : null}
-      </header>
+      ) : null}
 
       <div className="relative min-h-0 flex-1">
         {isLoading ? (
@@ -154,11 +148,6 @@ export function MatchDeck() {
             <p className="font-display text-2xl font-semibold">Viste todos los perfiles</p>
             <p className="max-w-64 text-sm text-muted-foreground">Volvé a ver los que pasaste o esperá a que se sumen nuevos.</p>
             <div className="flex gap-2">
-              {last ? (
-                <button type="button" onClick={undo} className="flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-bold">
-                  <Undo2 className="size-4" /> Deshacer
-                </button>
-              ) : null}
               <button
                 type="button"
                 disabled={refreshing}
@@ -214,22 +203,15 @@ export function MatchDeck() {
       </div>
 
       {card ? (
-        <div className="flex items-center justify-center gap-4">
-          <RoundButton label="Deshacer" onClick={undo} disabled={!last} className="size-12 border-2 border-olympic-yellow text-olympic-yellow">
-            <Undo2 className="size-5" />
-          </RoundButton>
-          <RoundButton label="Paso" onClick={() => decide('pass')} className="size-16 border-2 border-olympic-red text-olympic-red" style={{ transform: `scale(${1 + Math.max(0, -progress) * 0.18})` }} active={progress < -0.6}>
+        <div className="flex items-center justify-center gap-6">
+          <RoundButton label="Paso" onClick={() => decide('pass')} className="size-16 border-2 border-olympic-red bg-background text-olympic-red" style={{ transform: `scale(${1 + Math.max(0, -progress) * 0.18})` }} active={progress < -0.6}>
             <X className="size-7" strokeWidth={2.5} />
           </RoundButton>
           <RoundButton label="Me interesa" onClick={() => decide('like')} className="size-16 bg-olympic-green text-olympic-white" style={{ transform: `scale(${1 + Math.max(0, progress) * 0.18})` }} active={progress > 0.6}>
             <Heart className="size-7 fill-current" />
           </RoundButton>
-          <RoundButton label={expanded ? 'Ocultar detalles' : 'Ver detalles'} onClick={() => setExpanded((v) => !v)} className="size-12 border-2 border-olympic-blue text-olympic-blue">
-            <Info className="size-5" />
-          </RoundButton>
         </div>
       ) : null}
-      {card ? <p className="hidden text-center text-[11px] text-muted-foreground md:block">Usá ← → para decidir, ↑ para ver detalles y Borrar para deshacer.</p> : null}
 
       {toast ? (
         <p role="status" className="absolute inset-x-4 bottom-28 z-30 rounded-2xl bg-foreground px-4 py-3 text-center text-sm font-semibold text-background shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-200 md:bottom-8">
@@ -336,6 +318,18 @@ function Card({
       <div aria-hidden className="absolute inset-0 bg-olympic-green" style={{ opacity: likeAmount * 0.22 }} />
       <div aria-hidden className="absolute inset-0 bg-olympic-red" style={{ opacity: passAmount * 0.22 }} />
 
+      {onToggleDetails ? (
+        <button
+          type="button"
+          onPointerDown={stop}
+          onClick={onToggleDetails}
+          aria-label={expanded ? 'Ocultar información' : 'Ver información'}
+          aria-pressed={expanded}
+          className={cn('absolute right-4 top-4 z-10 flex size-10 items-center justify-center rounded-full shadow-lg backdrop-blur transition-colors', expanded ? 'bg-olympic-blue text-olympic-white' : 'bg-background/75 text-foreground')}
+        >
+          <Info className="size-5" />
+        </button>
+      ) : null}
       <span
         style={{ opacity: likeAmount, transform: `rotate(-14deg) scale(${0.7 + likeAmount * 0.35})` }}
         className="absolute left-5 top-8 rounded-xl border-4 border-olympic-green bg-background/30 px-3 py-1 font-display text-3xl font-black uppercase text-olympic-green backdrop-blur-sm"
@@ -344,7 +338,7 @@ function Card({
       </span>
       <span
         style={{ opacity: passAmount, transform: `rotate(14deg) scale(${0.7 + passAmount * 0.35})` }}
-        className="absolute right-5 top-8 rounded-xl border-4 border-olympic-red bg-background/30 px-3 py-1 font-display text-3xl font-black uppercase text-olympic-red backdrop-blur-sm"
+        className="absolute right-16 top-8 rounded-xl border-4 border-olympic-red bg-background/30 px-3 py-1 font-display text-3xl font-black uppercase text-olympic-red backdrop-blur-sm"
       >
         Paso
       </span>
@@ -364,11 +358,6 @@ function Card({
             {onOpenProfile ? (
               <button type="button" onPointerDown={stop} onClick={onOpenProfile} className="rounded-full bg-background/70 px-3 py-2 text-xs font-bold">
                 Ver perfil
-              </button>
-            ) : null}
-            {onToggleDetails ? (
-              <button type="button" onPointerDown={stop} onClick={onToggleDetails} aria-label={expanded ? 'Ocultar detalles' : 'Ver detalles'} className="flex size-9 items-center justify-center rounded-full bg-background/70">
-                {expanded ? <ChevronDown className="size-5" /> : <ChevronUp className="size-5" />}
               </button>
             ) : null}
           </div>
