@@ -89,7 +89,12 @@ export function CompanerosFeed() {
           {cheerFor === post.id ? cheer : null}
           {post.image ? (
             // Pinch or double tap to zoom; once zoomed, the button to zoom back out shows up.
-            <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={index <= 1} className="object-cover" hideButton />
+            <>
+              {/* Wide screens: the photo shows whole, with a blurred copy filling the sides. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img aria-hidden src={post.image} alt="" loading={index > 1 ? 'lazy' : 'eager'} className="absolute inset-0 hidden size-full scale-110 object-cover opacity-60 blur-2xl md:block" />
+              <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={index <= 1} className="object-cover md:object-contain" hideButton />
+            </>
           ) : (
             <div aria-hidden className={cn('absolute inset-0 opacity-30', kindMeta[post.kind].className)} />
           )}
