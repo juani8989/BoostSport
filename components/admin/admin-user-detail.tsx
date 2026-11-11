@@ -24,6 +24,7 @@ import { refreshAdminData } from '@/components/admin/admin-user-list'
 import { ProfileReminderModal, progressTone } from '@/components/admin/profile-reminder'
 import { completenessOf, profileChecklist } from '@/lib/profile-checklist'
 import { cn } from '@/lib/utils'
+import { load } from '@/lib/load'
 
 type Tab = 'perfil' | 'editar' | 'cuenta' | 'actividad' | 'avanzado'
 
@@ -36,7 +37,7 @@ const tabs: { id: Tab; label: string; icon: typeof Pencil }[] = [
 ]
 
 export function AdminUserDetail({ userId, initialTab = 'perfil', selfId, onClose }: { userId: string; initialTab?: 'perfil' | 'editar'; selfId: string; onClose: () => void }) {
-  const { data, isLoading } = useSWR(`admin:user:${userId}`, () => getAdminUser(userId))
+  const { data, isLoading } = useSWR(`admin:user:${userId}`, () => load('getAdminUser', userId))
   const [tab, setTab] = useState<Tab>(initialTab)
 
   useEffect(() => {

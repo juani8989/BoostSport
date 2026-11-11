@@ -10,6 +10,7 @@ import { companies, companyFromKey, seedAthleteFromKey, seedAthleteKey } from '@
 import { athletes } from '@/lib/data'
 import type { AthleteProfile, MerchItem, OrgProfile } from '@/lib/profile-types'
 import type { OfferMeta } from '@/app/actions/match'
+import { getSettingsMap, idFromKey } from '@/lib/user-settings'
 
 export type SearchRole = 'deportista' | 'empresa' | 'evento'
 
@@ -233,7 +234,16 @@ export async function searchPeople(query: string, role: SearchRole): Promise<Can
   const allowed: SearchRole[] = viewer.role === 'evento' ? ['deportista', 'empresa'] : ['deportista', 'evento']
   if (!allowed.includes(role)) return []
   const q = normalize(String(query ?? '').slice(0, 80).trim())
-  const all = await loadCandidates(viewer.id, viewer.key, [role])
+  const loaded = await loadCandidates(viewer.id, viewer.key, [role])
+  // Respect "Aparecer en búsquedas" and blocks.
+  const settingsBy = await getSettingsMap([viewer.id, ...loaded.map((c) => idFromKey(c.party.key) ?? '')])
+  const mine = settingsBy.get(viewer.id)
+  const all = loaded.filter((c) => {
+    const id = idFromKey(c.party.key)
+    if (!id) return true
+    const st = settingsBy.get(id)
+    return st?.privacy.showInSearch !== false && !st?.blocked.includes(viewer.key) && !mine?.blocked.includes(c.party.key)
+  })
   if (!q) return all.slice(0, 30)
   return all.filter((c) => normalize(`${c.party.name} ${c.party.subtitle} ${c.summary}`).includes(q)).slice(0, 30)
 }

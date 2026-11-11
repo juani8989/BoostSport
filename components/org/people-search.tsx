@@ -8,6 +8,7 @@ import { useNav } from '@/components/app/nav'
 import { PartyAvatar } from '@/components/app/kit'
 import { InviteButton } from '@/components/org/invite-button'
 import { cn } from '@/lib/utils'
+import { load } from '@/lib/load'
 
 const labels: Record<SearchRole, string> = { deportista: 'Deportistas', empresa: 'Sponsors', evento: 'Eventos' }
 
@@ -16,7 +17,7 @@ export function PeopleSearch({ roles }: { roles: SearchRole[] }) {
   const [role, setRole] = useState<SearchRole>(roles[0])
   const [query, setQuery] = useState('')
   const deferred = useDeferredValue(query)
-  const { data, isLoading, mutate } = useSWR(['people', role, deferred], () => searchPeople(deferred, role), { keepPreviousData: true })
+  const { data, isLoading, mutate } = useSWR(['people', role, deferred], () => load('searchPeople', deferred, role), { keepPreviousData: true })
 
   return (
     <section aria-labelledby="search-title" className="flex flex-col gap-3">

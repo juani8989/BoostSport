@@ -1,6 +1,7 @@
 'use server'
 
 import { and, count, desc, eq, gte, inArray, like, max, ne, or, sql } from 'drizzle-orm'
+import { postImageSrc } from '@/lib/media'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { account, comments, follows, matches, messages, posts, profiles, reactions, reports, session, swipes, user } from '@/lib/db/schema'
@@ -13,6 +14,7 @@ import { emailProvider, sendEmail, takeEmailFailure } from '@/lib/email'
 import { emailLayout } from '@/lib/emails/layout'
 import { profileReminderMessage } from '@/lib/emails/profile-reminder'
 import { siteUrl } from '@/lib/site-url'
+import { purgeUser } from '@/lib/purge-user'
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 
@@ -246,7 +248,7 @@ export async function getAdminUser(id: string): Promise<AdminUserDetail | null> 
     profileUpdatedAt: p?.updatedAt.toISOString() ?? null,
     hasPassword: creds.length > 0,
     sessions: sess.map((s) => ({ id: s.id, createdAt: s.createdAt.toISOString(), expiresAt: s.expiresAt.toISOString(), ipAddress: s.ipAddress, userAgent: s.userAgent })),
-    posts: userPosts.map((x) => ({ id: x.id, kind: x.kind, body: x.body, mediaUrl: x.mediaUrl, createdAt: x.createdAt.toISOString() })),
+    posts: userPosts.map((x) => ({ id: x.id, kind: x.kind, body: x.body, mediaUrl: postImageSrc(x.id, x.mediaUrl), createdAt: x.createdAt.toISOString() })),
     comments: userComments.map((c) => ({ id: c.id, targetId: c.targetId, body: c.body, createdAt: c.createdAt.toISOString() })),
     matches: userMatches.map((m, i) => ({
       id: m.id,
@@ -352,34 +354,6 @@ export async function adminRevokeSessions(id: string, sessionId?: string): Promi
   if (id === admin.id && !sessionId) return { ok: false, error: 'No podés cerrar todas tus propias sesiones desde acá.' }
   await db.delete(session).where(sessionId ? and(eq(session.userId, id), eq(session.id, sessionId)) : eq(session.userId, id))
   return { ok: true }
-}
-
-async function purgeUser(id: string) {
-  const key = keyOf(id)
-  const userPosts = await db.select({ id: posts.id }).from(posts).where(eq(posts.userId, id))
-  const postTargets = userPosts.map((p) => `post:${p.id}`)
-  const userMatches = await db.select({ id: matches.id }).from(matches).where(or(eq(matches.athleteKey, key), eq(matches.orgKey, key)))
-  const matchIds = userMatches.map((m) => m.id)
-
-  await Promise.all([
-    matchIds.length ? db.delete(messages).where(inArray(messages.matchId, matchIds)) : null,
-    db.delete(messages).where(eq(messages.senderKey, key)),
-    postTargets.length ? db.delete(comments).where(inArray(comments.targetId, postTargets)) : null,
-    postTargets.length ? db.delete(reactions).where(inArray(reactions.targetId, postTargets)) : null,
-    postTargets.length ? db.delete(reports).where(inArray(reports.targetId, postTargets)) : null,
-    db.delete(comments).where(eq(comments.userId, id)),
-    db.delete(reactions).where(or(eq(reactions.userId, id), like(reactions.targetId, `%${key}`))),
-    db.delete(reports).where(eq(reports.userId, id)),
-    db.delete(follows).where(or(eq(follows.followerId, id), eq(follows.targetId, key))),
-    db.delete(swipes).where(or(eq(swipes.userId, id), eq(swipes.targetId, key))),
-  ])
-  await Promise.all([
-    matchIds.length ? db.delete(matches).where(inArray(matches.id, matchIds)) : null,
-    db.delete(posts).where(eq(posts.userId, id)),
-    db.delete(profiles).where(eq(profiles.userId, id)),
-  ])
-  // session and account rows cascade from user.
-  await db.delete(user).where(eq(user.id, id))
 }
 
 export async function adminDeleteUsers(ids: string[]): Promise<Result<{ deleted: number }>> {

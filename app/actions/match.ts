@@ -6,6 +6,7 @@ import { matches, messages, profiles, swipes, user } from '@/lib/db/schema'
 import { describeParties, requireViewer, partyFromProfile, userKey, type Party, type ServerViewer } from '@/lib/viewer'
 import { MATCH_THRESHOLD, affinityScore, companies, companyFromKey, seedAthleteFromKey, seedAthleteKey, type Company } from '@/lib/catalog'
 import { athletes } from '@/lib/data'
+import { getSettings, getSettingsMap, idFromKey } from '@/lib/user-settings'
 
 const seedAffinity = (id: string) => 74 + ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 22)
 import type { AthleteProfile, OrgProfile } from '@/lib/profile-types'
@@ -71,6 +72,14 @@ export async function getDeck(opts?: { recycle?: boolean }): Promise<DeckCard[]>
     .where(inArray(profiles.role, wantRole))
     .limit(50)
 
+  // People who hid themselves from Match, and blocks in either direction, stay out of the deck.
+  const settingsBy = await getSettingsMap([viewer.id, ...realRows.map((r) => r.userId)])
+  const mine = settingsBy.get(viewer.id)
+  const visibleRows = realRows.filter((r) => {
+    const st = settingsBy.get(r.userId)
+    return st?.privacy.showInMatch !== false && !st?.blocked.includes(viewer.key) && !mine?.blocked.includes(userKey(r.userId))
+  })
+
   const cards: DeckCard[] = []
   if (viewer.role === 'deportista') {
     const needs = athleteNeeds(viewer.profile)
@@ -84,7 +93,7 @@ export async function getDeck(opts?: { recycle?: boolean }): Promise<DeckCard[]>
         company,
       })
     }
-    for (const row of realRows) {
+    for (const row of visibleRows) {
       const key = userKey(row.userId)
       cards.push({ key, party: partyFromProfile(key, row.data as OrgProfile, row.name), affinity: 75, appliedToYou: appliedKeys.has(key) })
     }
@@ -99,7 +108,7 @@ export async function getDeck(opts?: { recycle?: boolean }): Promise<DeckCard[]>
         athlete: { needs: ['Indumentaria', 'Viajes'], goals: `${a.category} · ${a.level}`, achievements: a.sponsoredBy ? `Patrocinado por ${a.sponsoredBy}` : 'Busca su primer sponsor', followers: a.followers },
       })
     }
-    for (const row of realRows) {
+    for (const row of visibleRows) {
       if (row.userId === viewer.id) continue
       const key = userKey(row.userId)
       const p = row.data as AthleteProfile
@@ -271,6 +280,12 @@ export async function sendMessage(matchId: number, body: string): Promise<Result
   const text = typeof body === 'string' ? body.trim() : ''
   if (!match) return { ok: false, error: 'Conversación no encontrada.' }
   if (!text || text.length > 1000) return { ok: false, error: 'El mensaje debe tener entre 1 y 1000 caracteres.' }
+  const otherId = idFromKey(match.otherKey)
+  if (otherId) {
+    const [theirs, mine] = await Promise.all([getSettings(otherId), getSettings(viewer.id)])
+    if (theirs.blocked.includes(viewer.key) || mine.blocked.includes(match.otherKey)) return { ok: false, error: 'No podés enviar mensajes en esta conversación.' }
+    if (theirs.interactions.messages === 'nadie') return { ok: false, error: 'Esta persona no recibe mensajes por ahora.' }
+  }
 
   await db.insert(messages).values({ matchId, senderKey: viewer.key, kind: 'text', body: text })
   if (match.otherKey.startsWith('seed:')) {

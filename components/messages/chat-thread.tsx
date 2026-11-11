@@ -8,10 +8,11 @@ import { useNav } from '@/components/app/nav'
 import { PartyAvatar, Sheet, isComposing } from '@/components/app/kit'
 import { needOptions } from '@/lib/roles'
 import { cn } from '@/lib/utils'
+import { load } from '@/lib/load'
 
 export function ChatThread({ matchId, onBack }: { matchId: number; onBack: () => void }) {
   const nav = useNav()
-  const { data, mutate, isLoading } = useSWR(['thread', matchId], () => getThread(matchId), { refreshInterval: 5000 })
+  const { data, mutate, isLoading } = useSWR(['thread', matchId], () => load('getThread', matchId), { refreshInterval: 5000 })
   const [text, setText] = useState('')
   const [pending, setPending] = useState(false)
   const [offering, setOffering] = useState(false)

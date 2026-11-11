@@ -7,12 +7,13 @@ import { getDeck, swipe, type DeckCard } from '@/app/actions/match'
 import { useNav } from '@/components/app/nav'
 import { PartyAvatar } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
+import { load } from '@/lib/load'
 
 const SWIPE_DISTANCE = 110
 
 export function MatchDeck() {
   const nav = useNav()
-  const { data, isLoading, mutate } = useSWR('deck', () => getDeck())
+  const { data, isLoading, mutate } = useSWR('deck', () => load('getDeck'))
   const [dragX, setDragX] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [leaving, setLeaving] = useState<'left' | 'right' | null>(null)

@@ -9,10 +9,11 @@ import { getEventsState, toggleReaction } from '@/app/actions/social'
 import { useNav } from '@/components/app/nav'
 import { PartyAvatar, Sheet } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
+import { load } from '@/lib/load'
 
 export function EventosFeed() {
   const nav = useNav()
-  const { data: state, mutate } = useSWR('events-state', () => getEventsState())
+  const { data: state, mutate } = useSWR('events-state', () => load('getEventsState'))
   const [detail, setDetail] = useState<SportEvent | null>(null)
 
   async function toggleGoing(id: string) {

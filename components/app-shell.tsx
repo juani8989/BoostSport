@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
-import { ArrowLeft, Bell, Handshake, House, LogOut, MessageCircle, Trophy, UserRound } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Bell, Handshake, House, LogOut, Menu, MessageCircle, Trophy, UserRound } from 'lucide-react'
 import { signOut, type Account, type Role } from '@/lib/auth-store'
 import { roleConfig } from '@/lib/roles'
 import { useAppStore } from '@/components/app-store'
@@ -18,6 +18,8 @@ import { AthleteProfileView } from '@/components/profile/athlete-profile'
 import { OrgProfileView } from '@/components/profile/org-profile'
 import { cn } from '@/lib/utils'
 import { BrandLine, BrandLogo } from '@/components/brand-logo'
+import { SettingsPanel } from '@/components/settings/settings-panel'
+import { ApplyPreferences } from '@/components/settings/apply-preferences'
 
 const tabs: { id: MainTab; label: string; icon: typeof House }[] = [
   { id: 'inicio', label: 'Inicio', icon: House },
@@ -47,7 +49,22 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [chatId, setChatId] = useState<number | null>(null)
   const [askAccount, setAskAccount] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
+
+  // Links shared from Configuración → Herramientas open that profile.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const key = url.searchParams.get('perfil')
+    if (!key || !/^(user:[\w-]+|seed:at-[a-z]+)$/.test(key)) return
+    setProfileKey(key)
+    const post = url.searchParams.get('post')
+    if (post && /^(seed:d\d+|post:\d+)$/.test(post)) setSharedPost(post)
+    url.searchParams.delete('perfil')
+    url.searchParams.delete('post')
+    window.history.replaceState(null, '', url.toString())
+  }, [])
   usePrefetchTabs(viewer.role)
   const visibleTabs = isGuest ? tabs.filter((t) => t.id === 'inicio' || t.id === 'vitrina') : tabs
 
@@ -112,9 +129,21 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
                   ) : null}
                 </button>
               )}
-              <button type="button" onClick={signOut} aria-label="Cerrar sesión" className="flex size-9 items-center justify-center rounded-full bg-background/60 backdrop-blur">
-                <LogOut className="size-4" />
-              </button>
+              {isGuest ? (
+                <button type="button" onClick={signOut} aria-label="Cerrar sesión" className="flex size-9 items-center justify-center rounded-full bg-background/60 backdrop-blur">
+                  <LogOut className="size-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(true)}
+                  aria-label="Configuración y actividad"
+                  aria-haspopup="dialog"
+                  className="flex size-9 items-center justify-center rounded-full bg-background/60 backdrop-blur"
+                >
+                  <Menu className="size-5" />
+                </button>
+              )}
             </div>
           </header>
 
@@ -136,13 +165,13 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
             <div className="absolute inset-0 z-40 bg-background">
               <button
                 type="button"
-                onClick={() => setProfileKey(null)}
+                onClick={() => (setProfileKey(null), setSharedPost(undefined))}
                 aria-label="Volver"
                 className="absolute left-4 top-16 z-20 flex size-9 items-center justify-center rounded-full bg-secondary"
               >
                 <ArrowLeft className="size-4" />
               </button>
-              <AthleteProfileView profileKey={profileKey} />
+              <AthleteProfileView profileKey={profileKey} initialPost={sharedPost} />
             </div>
           ) : null}
 
@@ -181,6 +210,8 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
 
           <NotificationBanner />
           {showNotifications ? <NotificationsPanel onClose={() => setShowNotifications(false)} /> : null}
+          {showSettings ? <SettingsPanel onClose={() => setShowSettings(false)} /> : null}
+          <ApplyPreferences enabled={!isGuest} />
           {askAccount ? (
             <Sheet title="Creá tu cuenta" onClose={() => setAskAccount(false)}>
               <div className="flex flex-col gap-4">

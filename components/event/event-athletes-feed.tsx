@@ -7,10 +7,11 @@ import { searchPeople, type Candidate } from '@/app/actions/org'
 import { useNav } from '@/components/app/nav'
 import { InviteButton } from '@/components/org/invite-button'
 import { PartyAvatar } from '@/components/app/kit'
+import { load } from '@/lib/load'
 
 export function EventAthletesFeed() {
   const [query, setQuery] = useState('')
-  const { data, isLoading, mutate } = useSWR(['event-athletes', query], ([, q]) => searchPeople(q, 'deportista'))
+  const { data, isLoading, mutate } = useSWR(['event-athletes', query], ([, q]) => load('searchPeople', q, 'deportista'))
 
   return (
     <section aria-label="Deportistas para invitar" className="flex flex-col gap-4">

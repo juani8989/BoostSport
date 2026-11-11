@@ -13,11 +13,12 @@ import type { OrgProfile } from '@/lib/profile-types'
 import { AiScout } from '@/components/org/ai-scout'
 import { PeopleSearch } from '@/components/org/people-search'
 import type { Viewer } from '@/components/app-shell'
+import { load } from '@/lib/load'
 
 export function OrgProfileView({ viewer }: { viewer: Viewer }) {
   const nav = useNav()
   const router = useRouter()
-  const { data: matches } = useSWR('matches', () => getMatches())
+  const { data: matches } = useSWR('matches', () => load('getMatches'))
   const [editing, setEditing] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)

@@ -6,6 +6,11 @@ export type TimelineEntry = { year: string; text: string }
 
 export type GalleryPhoto = { src: string; caption: string; credit?: string; sourceUrl?: string }
 
+export type PressKind = 'noticia' | 'entrevista' | 'video' | 'podcast' | 'link'
+
+/** A news article, interview or link where the athlete appears. */
+export type PressLink = { url: string; title: string; source: string; kind: PressKind; date?: string; image?: string; addedAt?: string }
+
 export type AthleteProfile = {
   kind: 'deportista'
   firstName: string
@@ -25,6 +30,9 @@ export type AthleteProfile = {
   recognitions: string
   timeline: TimelineEntry[]
   gallery?: GalleryPhoto[]
+  press?: PressLink[]
+  /** News found automatically that the athlete chose to hide. */
+  pressHidden?: string[]
   socials: { instagram: string; tiktok: string; x: string; youtube: string }
   needs: string[]
   needsDetail: string

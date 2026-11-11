@@ -16,3 +16,7 @@ node_modules
 .DS_Store
 # graphify (mapa local del código)
 graphify-out/
+
+# TypeScript / Next generados
+next-env.d.ts
+*.tsbuildinfo

@@ -7,6 +7,7 @@ import { getCompanerosFeed, getEventsState } from '@/app/actions/social'
 import { listBrands, searchPeople } from '@/app/actions/org'
 import { getAthleteProfile } from '@/app/actions/athlete'
 import type { Viewer } from '@/components/app-shell'
+import { load } from '@/lib/load'
 
 const warmImages = new Set<string>()
 
@@ -36,16 +37,16 @@ export function usePrefetchTabs(role: Viewer['role']) {
   useEffect(
     () =>
       whenIdle(() => {
-        preload('events-state', () => getEventsState())
-        preload('companeros', () => getCompanerosFeed())
+        preload('events-state', () => load('getEventsState'))
+        preload('companeros', () => load('getCompanerosFeed'))
         if (role === 'invitado') return
 
-        preload('matches', () => getMatches())
-        preload('deck', () => getDeck()).then((cards) => cards.slice(0, 6).forEach((c) => warmImage(c.party.image)))
-        if (role === 'deportista') preload(['athlete', 'me'], () => getAthleteProfile('me'))
+        preload('matches', () => load('getMatches'))
+        preload('deck', () => load('getDeck')).then((cards) => cards.slice(0, 6).forEach((c) => warmImage(c.party.image)))
+        if (role === 'deportista') preload(['athlete', 'me'], () => load('getAthleteProfile', 'me'))
         if (role === 'evento') {
-          preload(['event-athletes', ''], ([, q]) => searchPeople(q, 'deportista'))
-          preload(['event-brands', ''], ([, q]) => listBrands(q))
+          preload(['event-athletes', ''], ([, q]) => load('searchPeople', q, 'deportista'))
+          preload(['event-brands', ''], ([, q]) => load('listBrands', q))
         }
       }),
     [role],

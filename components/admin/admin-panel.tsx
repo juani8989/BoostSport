@@ -11,6 +11,7 @@ import { AdminFeedbackProvider, Avatar, Button, RoleBadge, Section, formatDate, 
 import { AdminUserList, prefetchAdminUser } from '@/components/admin/admin-user-list'
 import { AdminUserDetail } from '@/components/admin/admin-user-detail'
 import { cn } from '@/lib/utils'
+import { load } from '@/lib/load'
 
 export type AdminSection = 'resumen' | Role | 'sin-perfil'
 
@@ -28,12 +29,12 @@ export function AdminPanel({ admin }: { admin: { id: string; name: string; email
   const [section, setSection] = useState<AdminSection>('resumen')
   const [openUser, setOpenUser] = useState<{ id: string; tab?: 'perfil' | 'editar' } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const { data: overview } = useSWR('admin:overview', () => getAdminOverview())
+  const { data: overview } = useSWR('admin:overview', () => load('getAdminOverview'))
 
   useEffect(() => {
     // Load every category list in the background so opening one is instant.
     const id = setTimeout(() => {
-      for (const s of ['deportista', 'empresa', 'evento', 'sin-perfil'] as const) preload(`admin:users:${s}`, () => listAdminUsers(s))
+      for (const s of ['deportista', 'empresa', 'evento', 'sin-perfil'] as const) preload(`admin:users:${s}`, () => load('listAdminUsers', s))
     }, 400)
     return () => clearTimeout(id)
   }, [])
@@ -164,7 +165,7 @@ function TestEmailButton() {
 }
 
 function Overview({ onOpenSection, onOpenUser }: { onOpenSection: (s: AdminSection) => void; onOpenUser: (id: string) => void }) {
-  const { data, isLoading } = useSWR('admin:overview', () => getAdminOverview())
+  const { data, isLoading } = useSWR('admin:overview', () => load('getAdminOverview'))
 
   if (isLoading || !data) {
     return (

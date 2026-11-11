@@ -1,12 +1,14 @@
 'use server'
 
 import { and, count, desc, eq, inArray } from 'drizzle-orm'
+import { postImageSrc } from '@/lib/media'
 import { db } from '@/lib/db'
-import { comments, follows, posts, reactions, reports } from '@/lib/db/schema'
+import { comments, follows, postAudio, posts, reactions, reports } from '@/lib/db/schema'
 import { describeParties, getViewer, requireViewer, userKey, type Party } from '@/lib/viewer'
 import { events, seedAthleteKey, seedDaily, type DailyKind } from '@/lib/catalog'
+import { getSettings, getSettingsMap } from '@/lib/user-settings'
 
-export type ReactionKind = 'like' | 'apoyo' | 'asistir'
+export type ReactionKind = 'like' | 'apoyo' | 'asistir' | 'guardado' | 'repost'
 
 export type FeedPost = {
   id: string
@@ -20,6 +22,7 @@ export type FeedPost = {
   comments: number
   liked: boolean
   supported: boolean
+  saved: boolean
   mine: boolean
 }
 
@@ -28,7 +31,7 @@ export type FeedComment = { id: string; author: string; body: string; createdAt:
 type Result = { ok: true } | { ok: false; error: string }
 
 const DAILY_KINDS: DailyKind[] = ['diario', 'idea', 'colab', 'meta']
-const REACTION_KINDS: ReactionKind[] = ['like', 'apoyo', 'asistir']
+const REACTION_KINDS: ReactionKind[] = ['like', 'apoyo', 'asistir', 'guardado', 'repost']
 const TARGET_PATTERN = /^(seed:d\d+|post:\d+|event:[a-z0-9-]+|athlete:(user:[\w-]+|seed:at-[a-z]+))$/
 const MAX_IMAGE_CHARS = 1_400_000
 
@@ -41,49 +44,54 @@ async function reactionCounts(targetIds: string[], viewerId?: string) {
   const mine = new Set<string>()
   if (!targetIds.length) return { totals, mine }
 
-  const rows = await db
-    .select({ targetId: reactions.targetId, kind: reactions.kind, n: count() })
-    .from(reactions)
-    .where(inArray(reactions.targetId, targetIds))
-    .groupBy(reactions.targetId, reactions.kind)
+  const [rows, own] = await Promise.all([
+    db
+      .select({ targetId: reactions.targetId, kind: reactions.kind, n: count() })
+      .from(reactions)
+      .where(inArray(reactions.targetId, targetIds))
+      .groupBy(reactions.targetId, reactions.kind),
+    viewerId
+      ? db
+          .select({ targetId: reactions.targetId, kind: reactions.kind })
+          .from(reactions)
+          .where(and(eq(reactions.userId, viewerId), inArray(reactions.targetId, targetIds)))
+      : Promise.resolve([]),
+  ])
   for (const row of rows) {
     const entry = totals.get(row.targetId) ?? {}
     entry[row.kind] = Number(row.n)
     totals.set(row.targetId, entry)
   }
-
-  if (viewerId) {
-    const own = await db
-      .select({ targetId: reactions.targetId, kind: reactions.kind })
-      .from(reactions)
-      .where(and(eq(reactions.userId, viewerId), inArray(reactions.targetId, targetIds)))
-    for (const row of own) mine.add(`${row.targetId}|${row.kind}`)
-  }
+  for (const row of own) mine.add(`${row.targetId}|${row.kind}`)
   return { totals, mine }
 }
 
 export async function getCompanerosFeed(): Promise<FeedPost[]> {
-  const viewer = await getViewer()
-  const realPosts = await db.select().from(posts).orderBy(desc(posts.createdAt)).limit(40)
-
-  const hidden = new Set<string>()
-  if (viewer) {
-    const reported = await db.select({ targetId: reports.targetId }).from(reports).where(eq(reports.userId, viewer.id))
-    for (const r of reported) hidden.add(r.targetId)
-  }
-
-  const targetIds = [...realPosts.map((p) => `post:${p.id}`), ...seedDaily.map((s) => s.id)].filter((id) => !hidden.has(id))
-  const [{ totals, mine }, commentRows, parties] = await Promise.all([
-    reactionCounts(targetIds, viewer?.id),
-    targetIds.length
-      ? db.select({ targetId: comments.targetId, n: count() }).from(comments).where(inArray(comments.targetId, targetIds)).groupBy(comments.targetId)
-      : Promise.resolve([]),
+  // Two waves of parallel queries instead of a chain: each round trip to the database counts.
+  const [viewer, realPosts] = await Promise.all([getViewer(), db.select().from(posts).orderBy(desc(posts.createdAt)).limit(40)])
+  const candidateIds = [...realPosts.map((p) => `post:${p.id}`), ...seedDaily.map((s) => s.id)]
+  const [authorSettings, reported, { totals, mine }, commentRows, parties] = await Promise.all([
+    getSettingsMap([...realPosts.map((p) => p.userId), ...(viewer ? [viewer.id] : [])]),
+    viewer ? db.select({ targetId: reports.targetId }).from(reports).where(eq(reports.userId, viewer.id)) : Promise.resolve([]),
+    reactionCounts(candidateIds, viewer?.id),
+    db.select({ targetId: comments.targetId, n: count() }).from(comments).where(inArray(comments.targetId, candidateIds)).groupBy(comments.targetId),
     describeParties([...realPosts.map((p) => userKey(p.userId)), ...seedDaily.map((s) => seedAthleteKey(s.athleteId))]),
   ])
+
+  const hidden = new Set<string>(reported.map((r) => r.targetId))
+  const hiddenAuthors = new Set<string>()
+  // Archived posts disappear from the feed, also for their author.
+  for (const p of realPosts) if (authorSettings.get(p.userId)?.archived.includes(`post:${p.id}`)) hidden.add(`post:${p.id}`)
+  if (viewer) {
+    const mineSettings = authorSettings.get(viewer.id)
+    for (const k of [...(mineSettings?.blocked ?? []), ...(mineSettings?.muted ?? [])]) hiddenAuthors.add(k)
+    // Authors who blocked the viewer don't show up either.
+    for (const [id, st] of authorSettings) if (id !== viewer.id && st.blocked.includes(viewer.key)) hiddenAuthors.add(userKey(id))
+  }
   const commentTotals = new Map(commentRows.map((r) => [r.targetId, Number(r.n)]))
 
-  const build = (id: string, author: Party | undefined, base: Omit<FeedPost, 'id' | 'author' | 'likes' | 'apoyos' | 'comments' | 'liked' | 'supported'>, baseLikes = 0, baseComments = 0): FeedPost | null => {
-    if (!author || hidden.has(id)) return null
+  const build = (id: string, author: Party | undefined, base: Omit<FeedPost, 'id' | 'author' | 'likes' | 'apoyos' | 'comments' | 'liked' | 'supported' | 'saved'>, baseLikes = 0, baseComments = 0): FeedPost | null => {
+    if (!author || hidden.has(id) || hiddenAuthors.has(author.key)) return null
     const t = totals.get(id) ?? {}
     return {
       id,
@@ -94,6 +102,7 @@ export async function getCompanerosFeed(): Promise<FeedPost[]> {
       comments: baseComments + (commentTotals.get(id) ?? 0),
       liked: mine.has(`${id}|like`),
       supported: mine.has(`${id}|apoyo`),
+      saved: mine.has(`${id}|guardado`),
     }
   }
 
@@ -103,7 +112,7 @@ export async function getCompanerosFeed(): Promise<FeedPost[]> {
       build(`post:${p.id}`, parties.get(userKey(p.userId)), {
         kind: p.kind as DailyKind,
         body: p.body,
-        image: p.mediaUrl,
+        image: postImageSrc(p.id, p.mediaUrl),
         createdAt: p.createdAt.toISOString(),
         mine: p.userId === viewer?.id,
       }),
@@ -122,7 +131,9 @@ export async function getCompanerosFeed(): Promise<FeedPost[]> {
   return feed.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
-export async function createPost(input: { kind: DailyKind; body: string; image?: string | null }): Promise<Result> {
+const MAX_AUDIO_CHARS = 2_800_000 // about 2 MB of audio, roughly a minute and a half
+
+export async function createPost(input: { kind: DailyKind; body: string; image?: string | null; audio?: { data: string; name: string } | null }): Promise<Result & { warning?: string }> {
   const viewer = await requireViewer()
   if (viewer.role !== 'deportista') return { ok: false, error: 'Solo los deportistas pueden publicar en Compañeros.' }
 
@@ -135,7 +146,20 @@ export async function createPost(input: { kind: DailyKind; body: string; image?:
     return { ok: false, error: 'La imagen no es válida o es muy pesada.' }
   }
 
-  await db.insert(posts).values({ userId: viewer.id, authorName: viewer.name, kind: input.kind, body, mediaUrl: image })
+  const audio = input.audio ?? null
+  if (audio && (!/^data:audio\/(mpeg|mp3|mp4|x-m4a|aac|ogg|webm|wav|x-wav);base64,/.test(audio.data) || audio.data.length > MAX_AUDIO_CHARS)) {
+    return { ok: false, error: 'El audio no es válido o pesa más de 2 MB.' }
+  }
+
+  const [created] = await db.insert(posts).values({ userId: viewer.id, authorName: viewer.name, kind: input.kind, body, mediaUrl: image }).returning({ id: posts.id })
+  if (audio) {
+    try {
+      await db.insert(postAudio).values({ postId: created.id, audioUrl: audio.data, audioName: String(audio.name ?? '').trim().slice(0, 80) })
+    } catch (error) {
+      console.error('post audio not saved', error)
+      return { ok: true, warning: 'Publicamos tu post, pero el audio todavía no se puede guardar.' }
+    }
+  }
   return { ok: true }
 }
 
@@ -159,6 +183,12 @@ export async function toggleReaction(targetId: string, kind: ReactionKind): Prom
   return { ok: true }
 }
 
+async function postOwner(targetId: string) {
+  if (!targetId.startsWith('post:')) return null
+  const [row] = await db.select({ userId: posts.userId }).from(posts).where(eq(posts.id, Number(targetId.slice(5)))).limit(1)
+  return row?.userId ?? null
+}
+
 export async function getComments(targetId: string): Promise<FeedComment[]> {
   if (!validTarget(targetId)) return []
   const seed = seedDaily.find((s) => s.id === targetId)
@@ -168,8 +198,23 @@ export async function getComments(targetId: string): Promise<FeedComment[]> {
     body: c.body,
     createdAt: new Date(Date.now() - (seed!.minutesAgo - 5 - i) * 60_000).toISOString(),
   }))
-  const rows = await db.select().from(comments).where(eq(comments.targetId, targetId)).orderBy(comments.createdAt).limit(100)
-  return [...seedComments, ...rows.map((r) => ({ id: String(r.id), author: r.authorName, body: r.body, createdAt: r.createdAt.toISOString() }))]
+  const [rows, owner, viewer] = await Promise.all([
+    db.select().from(comments).where(eq(comments.targetId, targetId)).orderBy(comments.createdAt).limit(100),
+    postOwner(targetId),
+    getViewer(),
+  ])
+  const [ownerSettings, viewerSettings] = await Promise.all([owner ? getSettings(owner) : null, viewer ? getSettings(viewer.id) : null])
+  const words = ownerSettings?.interactions.hiddenWords ?? []
+  const hiddenUsers = new Set([...(viewerSettings?.blocked ?? []), ...(viewerSettings?.muted ?? []), ...(ownerSettings?.blocked ?? [])].filter((k) => k.startsWith('user:')).map((k) => k.slice(5)))
+  const visible = rows.filter((r) => {
+    if (hiddenUsers.has(r.userId)) return false
+    // The author's restricted people and hidden words only show to the commenter.
+    if (r.userId === viewer?.id) return true
+    if (ownerSettings?.restricted.includes(userKey(r.userId))) return false
+    const text = r.body.toLowerCase()
+    return !words.some((w) => text.includes(w))
+  })
+  return [...seedComments, ...visible.map((r) => ({ id: String(r.id), author: r.authorName, body: r.body, createdAt: r.createdAt.toISOString() }))]
 }
 
 export async function addComment(targetId: string, body: string): Promise<Result> {
@@ -177,6 +222,16 @@ export async function addComment(targetId: string, body: string): Promise<Result
   const text = typeof body === 'string' ? body.trim() : ''
   if (!validTarget(targetId)) return { ok: false, error: 'Publicación inválida.' }
   if (!text || text.length > 300) return { ok: false, error: 'El comentario debe tener entre 1 y 300 caracteres.' }
+  const owner = await postOwner(targetId)
+  if (owner && owner !== viewer.id) {
+    const st = await getSettings(owner)
+    if (st.blocked.includes(viewer.key)) return { ok: false, error: 'No podés comentar esta publicación.' }
+    if (st.interactions.comments === 'nadie') return { ok: false, error: 'Los comentarios están desactivados en esta publicación.' }
+    if (st.interactions.comments === 'seguidos') {
+      const [f] = await db.select({ t: follows.targetId }).from(follows).where(and(eq(follows.followerId, owner), eq(follows.targetId, viewer.key))).limit(1)
+      if (!f) return { ok: false, error: 'Solo las personas que sigue pueden comentar.' }
+    }
+  }
   await db.insert(comments).values({ targetId, userId: viewer.id, authorName: viewer.name, body: text })
   return { ok: true }
 }
