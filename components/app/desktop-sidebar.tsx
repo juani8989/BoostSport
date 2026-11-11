@@ -63,7 +63,7 @@ export function DesktopSidebar({
   onSettings: () => void
 }) {
   return (
-    <aside className="sticky top-0 z-40 hidden h-dvh w-[72px] shrink-0 flex-col border-r border-border bg-background px-3 py-6 md:flex">
+    <aside className="sticky top-0 z-[60] hidden h-dvh w-[72px] shrink-0 flex-col border-r border-border bg-background px-3 py-6 md:flex">
       <div className="flex w-12 justify-center pb-8">
         <BrandMark />
       </div>

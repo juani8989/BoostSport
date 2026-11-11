@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
-import { Archive, ArchiveRestore, Bookmark, CalendarCheck, Clock, HandHeart, Heart, History, MessageCircle, Trash2, UserMinus, Users } from 'lucide-react'
-import { getMyActivity, getMyPosts, getSaved, removeMyComment, undoReaction, unfollow, type TargetPreview } from '@/app/actions/settings'
+import { Archive, ArchiveRestore, Bookmark, Folder, FolderInput, FolderPlus, Pencil, CalendarCheck, Clock, HandHeart, Heart, History, MessageCircle, Trash2, UserMinus, Users } from 'lucide-react'
+import { createSaveFolder, deleteSaveFolder, getMyActivity, getMyPosts, getSaved, removeMyComment, renameSaveFolder, undoReaction, unfollow, type TargetPreview } from '@/app/actions/settings'
+import { SaveFolderSheet } from '@/components/saved/save-folders'
+import { cn } from '@/lib/utils'
 import { useNav } from '@/components/app/nav'
 import { PartyAvatar, timeAgo } from '@/components/app/kit'
 import { useSettings } from '@/components/settings/use-settings'
@@ -47,16 +49,85 @@ const savedFilters = [
 export function SavedPage({ back, close }: PageProps) {
   const nav = useNav()
   const { data, mutate, isLoading } = useSWR('saved', () => load('getSaved'))
+  const { data: folders, mutate: mutateFolders } = useSWR(['save-folders', ''], () => load('getSaveFolders'))
   const [filter, setFilter] = useState<(typeof savedFilters)[number]['value']>('todo')
-  const items = (data ?? []).filter((i) => filter === 'todo' || i.kind === filter)
+  const [folder, setFolder] = useState<string>('todas')
+  const [folderFor, setFolderFor] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [draft, setDraft] = useState('')
+  const current = folders?.find((f) => f.id === folder)
+  const items = (data ?? []).filter((i) => (filter === 'todo' || i.kind === filter) && (!current || current.items.includes(i.targetId)))
+
+  async function submitFolder(e: React.FormEvent) {
+    e.preventDefault()
+    if (!draft.trim()) return
+    if (renaming && current) await renameSaveFolder(current.id, draft)
+    else {
+      const res = await createSaveFolder(draft)
+      if (res.ok) setFolder(res.id)
+    }
+    setDraft('')
+    setCreating(false)
+    setRenaming(false)
+    mutateFolders()
+  }
+
+  async function removeFolder() {
+    if (!current || !window.confirm(`¿Borrar la carpeta “${current.name}”? Lo que tiene sigue en Guardados.`)) return
+    await deleteSaveFolder(current.id)
+    setFolder('todas')
+    mutateFolders()
+  }
 
   return (
     <Page title="Guardados" onBack={back}>
+      <div className="flex gap-2 overflow-x-auto px-4 pb-2 pt-3 no-scrollbar">
+        <button type="button" onClick={() => setFolder('todas')} className={cn('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold', folder === 'todas' ? 'bg-foreground text-background' : 'bg-secondary')}>
+          Todos los guardados {data ? `· ${data.length}` : ''}
+        </button>
+        {folders?.map((f) => (
+          <button key={f.id} type="button" onClick={() => setFolder(f.id)} className={cn('flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold', folder === f.id ? 'bg-foreground text-background' : 'bg-secondary')}>
+            <Folder className="size-3.5" /> {f.name} · {f.count}
+          </button>
+        ))}
+        <button type="button" onClick={() => (setCreating(true), setRenaming(false), setDraft(''))} className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-semibold">
+          <FolderPlus className="size-3.5" /> Nueva carpeta
+        </button>
+      </div>
+
+      {creating || renaming ? (
+        <form onSubmit={submitFolder} className="flex gap-2 px-4 py-2">
+          <label htmlFor="folder-name" className="sr-only">
+            Nombre de la carpeta
+          </label>
+          <input id="folder-name" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={40} placeholder="Nombre de la carpeta" className="min-w-0 flex-1 rounded-xl border border-input bg-background px-4 py-2.5 text-sm" />
+          <button type="submit" className="rounded-xl bg-olympic-blue px-4 text-sm font-bold text-olympic-white">
+            {renaming ? 'Guardar' : 'Crear'}
+          </button>
+          <button type="button" onClick={() => (setCreating(false), setRenaming(false))} className="rounded-xl bg-secondary px-3 text-sm font-semibold">
+            Cancelar
+          </button>
+        </form>
+      ) : null}
+
+      {current && !renaming ? (
+        <div className="flex items-center gap-2 px-4 py-1">
+          <span className="flex-1 text-sm font-semibold">{current.name}</span>
+          <button type="button" onClick={() => (setRenaming(true), setCreating(false), setDraft(current.name))} className="flex items-center gap-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold">
+            <Pencil className="size-3.5" /> Renombrar
+          </button>
+          <button type="button" onClick={removeFolder} className="flex items-center gap-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-destructive">
+            <Trash2 className="size-3.5" /> Borrar
+          </button>
+        </div>
+      ) : null}
+
       <Tabs value={filter} options={[...savedFilters]} onChange={setFilter} />
       {isLoading ? <Loading /> : null}
       {data && !items.length ? (
-        <Empty icon={Bookmark} title="Todavía no guardaste nada">
-          Tocá el ícono de guardar en una publicación de Compañeros para encontrarla acá. Solo vos ves lo que guardás.
+        <Empty icon={current ? Folder : Bookmark} title={current ? 'Esta carpeta está vacía' : 'Todavía no guardaste nada'}>
+          {current ? 'Desde cualquier guardado tocá el ícono de carpeta para sumarlo acá.' : 'Tocá el ícono de guardar en una publicación para encontrarla acá. Solo vos ves lo que guardás.'}
         </Empty>
       ) : null}
       <ul className="flex flex-col py-2">
@@ -68,27 +139,42 @@ export function SavedPage({ back, close }: PageProps) {
               item.authorKey
                 ? () => {
                     close()
-                    nav.openProfile(item.authorKey!)
+                    nav.openProfile(item.authorKey!, item.kind === 'publicacion' ? item.targetId : undefined)
                   }
                 : undefined
             }
             action={
-              <button
-                type="button"
-                aria-label="Quitar de guardados"
-                onClick={async () => {
-                  mutate(data?.filter((d) => d.targetId !== item.targetId), { revalidate: false })
-                  await undoReaction(item.targetId, 'guardado')
-                  globalMutate('companeros')
-                }}
-                className="flex size-9 items-center justify-center rounded-full"
-              >
-                <Bookmark className="size-5 fill-current" />
-              </button>
+              <span className="flex shrink-0 gap-1">
+                <button type="button" aria-label="Elegir carpeta" onClick={() => setFolderFor(item.targetId)} className="flex size-9 items-center justify-center rounded-full hover:bg-secondary">
+                  <FolderInput className="size-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Quitar de guardados"
+                  onClick={async () => {
+                    mutate(data?.filter((d) => d.targetId !== item.targetId), { revalidate: false })
+                    await undoReaction(item.targetId, 'guardado')
+                    globalMutate('companeros')
+                    mutateFolders()
+                  }}
+                  className="flex size-9 items-center justify-center rounded-full hover:bg-secondary"
+                >
+                  <Bookmark className="size-5 fill-current" />
+                </button>
+              </span>
             }
           />
         ))}
       </ul>
+      {folderFor ? (
+        <SaveFolderSheet
+          targetId={folderFor}
+          onClose={() => {
+            setFolderFor(null)
+            mutateFolders()
+          }}
+        />
+      ) : null}
     </Page>
   )
 }

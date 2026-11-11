@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { ShareSheet } from '@/components/share/share-sheet'
 import Image from 'next/image'
 import { BadgeCheck, Bookmark, BriefcaseBusiness, HandHeart, Share2 } from 'lucide-react'
 import { useAppStore } from '@/components/app-store'
@@ -124,6 +126,7 @@ export function ActionRail({ postId, applause }: { postId: string; applause: num
   const clapped = toggled.has(`clap-${postId}`)
   const saved = toggled.has(`save-${postId}`)
   const recommended = toggled.has(`rec-${postId}`)
+  const [sharing, setSharing] = useState(false)
 
   return (
     <div className="flex shrink-0 flex-col items-center gap-4 pb-2">
@@ -159,9 +162,15 @@ export function ActionRail({ postId, applause }: { postId: string; applause: num
       >
         <BriefcaseBusiness className="size-5" />
       </RailButton>
-      <RailButton label="Compartir" count="Compartir" onClick={() => {}}>
+      <RailButton label="Compartir" count="Compartir" onClick={() => setSharing(true)}>
         <Share2 className="size-5" />
       </RailButton>
+      {sharing ? (
+        <ShareSheet
+          item={{ text: 'Mirá este logro en la Vitrina de BoostSport', url: window.location.origin, title: 'Vitrina de BoostSport', subtitle: 'Logros de deportistas que buscan sponsor' }}
+          onClose={() => setSharing(false)}
+        />
+      ) : null}
     </div>
   )
 }

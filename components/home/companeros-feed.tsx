@@ -16,6 +16,9 @@ import {
 import type { DailyKind } from '@/lib/catalog'
 import { useNav } from '@/components/app/nav'
 import { storeMedia } from '@/lib/upload'
+import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
+import { ShareSheet } from '@/components/share/share-sheet'
+import { useCheer } from '@/components/app/cheer'
 import { PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { useSettings } from '@/components/settings/use-settings'
@@ -34,6 +37,11 @@ export function CompanerosFeed() {
   const [commentsFor, setCommentsFor] = useState<FeedPost | null>(null)
   const [menuFor, setMenuFor] = useState<FeedPost | null>(null)
   const [composing, setComposing] = useState(false)
+  const [savedToast, setSavedToast] = useState<string | null>(null)
+  const [cheer, fireCheer] = useCheer()
+  const [cheerFor, setCheerFor] = useState<string | null>(null)
+  const [sharing, setSharing] = useState<FeedPost | null>(null)
+  const [folderFor, setFolderFor] = useState<string | null>(null)
   const { settings } = useSettings(nav.role !== 'invitado')
   const hideCounts = settings.feed.hideLikeCounts
 
@@ -41,6 +49,10 @@ export function CompanerosFeed() {
     if (!nav.requireAccount()) return
     const flag = kind === 'like' ? 'liked' : 'supported'
     const total = kind === 'like' ? 'likes' : 'apoyos'
+    if (kind === 'apoyo' && !post.supported) {
+      setCheerFor(post.id)
+      fireCheer()
+    }
     mutate(
       (prev) => prev?.map((p) => (p.id === post.id ? { ...p, [flag]: !p[flag], [total]: p[total] + (p[flag] ? -1 : 1) } : p)),
       { revalidate: false },
@@ -52,14 +64,13 @@ export function CompanerosFeed() {
   async function save(post: FeedPost) {
     if (!nav.requireAccount()) return
     mutate((prev) => prev?.map((p) => (p.id === post.id ? { ...p, saved: !p.saved } : p)), { revalidate: false })
+    setSavedToast(post.saved ? null : post.id)
     await toggleReaction(post.id, 'guardado')
     globalMutate('saved')
   }
 
-  async function share(post: FeedPost) {
-    const text = `${post.author.name} en BoostSport: ${post.body}`
-    if (navigator.share) await navigator.share({ title: 'BoostSport', text }).catch(() => {})
-    else await navigator.clipboard?.writeText(text).catch(() => {})
+  function share(post: FeedPost) {
+    setSharing(post)
   }
 
   if (isLoading || !data) {
@@ -74,6 +85,7 @@ export function CompanerosFeed() {
     <>
       {data.map((post, index) => (
         <article key={post.id} className="relative h-full w-full shrink-0 snap-start snap-always overflow-hidden">
+          {cheerFor === post.id ? cheer : null}
           {post.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={post.image} alt="" loading={index > 1 ? 'lazy' : 'eager'} className="absolute inset-0 size-full object-cover" />
@@ -84,6 +96,12 @@ export function CompanerosFeed() {
 
           <div className="relative flex h-full items-end gap-3 px-4 pb-24 pt-36">
             <div className="flex min-w-0 flex-1 flex-col gap-3">
+              {post.boostedBy || post.supported ? (
+                <p className="flex items-center gap-1.5 self-start rounded-full bg-olympic-yellow/90 px-2.5 py-1 text-[11px] font-bold text-olympic-black">
+                  <HandHeart className="size-3.5" />
+                  {post.supported && (!post.boostedBy || post.boostedBy.key === `user:${nav.account?.id}`) ? 'Lo apoyaste' : `Apoyado por ${post.boostedBy!.name}${post.boostedBy!.others > 0 ? ` y ${post.boostedBy!.others} más` : ''}`}
+                </p>
+              ) : null}
               <button type="button" onClick={() => nav.openProfile(post.author.key)} className="flex items-center gap-2 self-start text-left">
                 <PartyAvatar party={post.author} className="size-9" />
                 <span className="flex min-w-0 flex-col leading-tight">
@@ -115,9 +133,15 @@ export function CompanerosFeed() {
               <RailButton label="Compartir" onClick={() => share(post)}>
                 <Share2 className="size-6" />
               </RailButton>
-              <RailButton label="Más opciones" onClick={() => (nav.requireAccount() ? setMenuFor(post) : null)}>
-                <MoreHorizontal className="size-6" />
-              </RailButton>
+              {post.mine ? (
+                <RailButton label="Opciones de tu publicación" onClick={() => setMenuFor(post)}>
+                  <MoreHorizontal className="size-6" />
+                </RailButton>
+              ) : (
+                <RailButton label="Reportar" onClick={() => (nav.requireAccount() ? setMenuFor(post) : null)}>
+                  <Flag className="size-6 fill-olympic-red text-olympic-red" />
+                </RailButton>
+              )}
             </div>
           </div>
         </article>
@@ -137,6 +161,20 @@ export function CompanerosFeed() {
       {commentsFor ? <CommentsSheet post={commentsFor} onClose={() => setCommentsFor(null)} onAdded={() => mutate()} /> : null}
       {menuFor ? <PostMenu post={menuFor} onClose={() => setMenuFor(null)} onDone={() => mutate()} /> : null}
       {composing ? <Composer onClose={() => setComposing(false)} onPosted={() => mutate()} /> : null}
+      {savedToast ? <SavedToast onChoose={() => (setFolderFor(savedToast), setSavedToast(null))} onDone={() => setSavedToast(null)} /> : null}
+      {folderFor ? <SaveFolderSheet targetId={folderFor} onClose={() => setFolderFor(null)} /> : null}
+      {sharing ? (
+        <ShareSheet
+          item={{
+            text: `${sharing.author.name} en BoostSport: ${sharing.body.slice(0, 120)}`,
+            url: `${window.location.origin}/?perfil=${encodeURIComponent(sharing.author.key)}&post=${encodeURIComponent(sharing.id)}`,
+            title: sharing.author.name,
+            subtitle: sharing.body,
+            image: sharing.image,
+          }}
+          onClose={() => setSharing(null)}
+        />
+      ) : null}
     </>
   )
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR, { mutate as globalMutate } from 'swr'
-import { ArrowLeft, BadgeCheck, Handshake, HandHeart, Heart, Loader2, MessageCircle, Settings2, Target, Trophy, UserPlus, UserCheck } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Bookmark, Handshake, HandHeart, Heart, Loader2, MessageCircle, Settings2, Target, Trophy, UserPlus, UserCheck } from 'lucide-react'
 import { getAthleteMentions, getAthleteProfile, updateMyAthleteProfile } from '@/app/actions/athlete'
 import { toggleFollow, toggleReaction } from '@/app/actions/social'
 import { swipe } from '@/app/actions/match'
@@ -12,6 +12,7 @@ import { PartyAvatar, Sheet, compactNumber, timeAgo } from '@/components/app/kit
 import { AthleteProfileForm } from '@/components/auth/athlete-profile-form'
 import { AddPressSheet, PressMentions } from '@/components/profile/press-mentions'
 import { CreateMenu } from '@/components/profile/create-menu'
+import { useCheer } from '@/components/app/cheer'
 import { Composer } from '@/components/home/companeros-feed'
 import type { DailyKind } from '@/lib/catalog'
 import { PostViewer } from '@/components/posts/post-viewer'
@@ -38,6 +39,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
   const [openPhoto, setOpenPhoto] = useState<{ src: string; caption: string } | null>(null)
   const [addingPress, setAddingPress] = useState(false)
   const [composing, setComposing] = useState<DailyKind | null>(null)
+  const [cheer, fireCheer] = useCheer()
 
   if (isLoading) {
     return (
@@ -60,6 +62,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
 
   async function support() {
     if (!nav.requireAccount() || !data) return
+    if (!data.supported) fireCheer()
     mutate({ ...data, supported: !data.supported, stats: { ...data.stats, apoyos: data.stats.apoyos + (data.supported ? -1 : 1) } }, { revalidate: false })
     await toggleReaction(`athlete:${data.key}`, 'apoyo')
     mutate()
@@ -110,8 +113,20 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
   return (
     <div className="flex h-full flex-col overflow-y-auto pb-24">
       <section className="relative flex flex-col items-center gap-3 px-4 pb-5 pt-20 text-center">
+        {cheer}
         {data.isMe ? (
-          <CreateMenu onCompose={setComposing} onAddPress={() => setAddingPress(true)} />
+          <>
+            <CreateMenu onCompose={setComposing} onAddPress={() => setAddingPress(true)} />
+            <button
+              type="button"
+              onClick={() => nav.openSettings('guardados')}
+              aria-label="Guardados"
+              title="Guardados"
+              className="absolute right-4 top-16 z-20 flex size-10 items-center justify-center rounded-xl border-2 border-foreground"
+            >
+              <Bookmark className="size-5" />
+            </button>
+          </>
         ) : null}
         <PartyAvatar party={data.party} className="size-24 ring-4" />
         <div className="flex flex-col items-center gap-1">
@@ -156,10 +171,6 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
               <button type="button" onClick={() => setEditing(true)} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-secondary py-2.5 text-sm font-bold">
                 <Settings2 className="size-4" />
                 Mis datos
-              </button>
-              <button type="button" onClick={() => nav.goTo('mensajes')} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-olympic-blue py-2.5 text-sm font-bold text-olympic-white">
-                <MessageCircle className="size-4" />
-                Mensajes
               </button>
             </>
           ) : (

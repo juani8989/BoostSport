@@ -456,3 +456,70 @@ export async function resetMySettings(section: keyof Settings): Promise<Result<{
   await saveSettings(viewer.id, next)
   return { ok: true, settings: next }
 }
+
+export type SaveFolder = { id: string; name: string; count: number; cover?: string; items: string[]; has: boolean }
+
+const folderOf = (entry: string) => {
+  const i = entry.indexOf('|')
+  return { id: entry.slice(0, i), name: entry.slice(i + 1) }
+}
+
+async function withSettings(change: (s: Settings) => Settings | { error: string }): Promise<Result<{ settings: Settings }>> {
+  const viewer = await requireViewer()
+  const current = await getSettings(viewer.id)
+  const next = change(current)
+  if ('error' in next) return { ok: false, error: next.error }
+  try {
+    await saveSettings(viewer.id, next)
+  } catch (error) {
+    if (error instanceof SettingsUnavailableError) return { ok: false, error: error.message }
+    throw error
+  }
+  return { ok: true, settings: next }
+}
+
+/** The viewer's folders for saved posts, with how many items each holds. */
+export async function getSaveFolders(targetId?: string): Promise<SaveFolder[]> {
+  const viewer = await requireViewer()
+  const settings = await getSettings(viewer.id)
+  const saved = await getSaved()
+  const savedIds = new Set(saved.map((s) => s.targetId))
+  return settings.saveFolders.map(folderOf).map((f) => {
+    const items = settings.savedIn.filter((e) => e.startsWith(`${f.id}|`)).map((e) => e.slice(f.id.length + 1)).filter((t) => savedIds.has(t))
+    return { ...f, count: items.length, cover: saved.find((s) => s.targetId === items[0])?.image, items, has: !!targetId && items.includes(targetId) }
+  })
+}
+
+export async function createSaveFolder(name: string): Promise<Result<{ id: string }>> {
+  const clean = String(name ?? '').replace(/\|/g, ' ').trim().slice(0, 40)
+  if (!clean) return { ok: false, error: 'Poné un nombre.' }
+  const id = crypto.randomUUID().slice(0, 8)
+  const res = await withSettings((s) => (s.saveFolders.length >= 50 ? { error: 'Llegaste al máximo de 50 carpetas.' } : { ...s, saveFolders: [...s.saveFolders, `${id}|${clean}`] }))
+  return res.ok ? { ok: true, id } : res
+}
+
+export async function renameSaveFolder(id: string, name: string): Promise<Result> {
+  const clean = String(name ?? '').replace(/\|/g, ' ').trim().slice(0, 40)
+  if (!clean) return { ok: false, error: 'Poné un nombre.' }
+  const res = await withSettings((s) => ({ ...s, saveFolders: s.saveFolders.map((e) => (folderOf(e).id === id ? `${id}|${clean}` : e)) }))
+  return res.ok ? { ok: true } : res
+}
+
+/** Deletes the folder; the posts stay saved. */
+export async function deleteSaveFolder(id: string): Promise<Result> {
+  const res = await withSettings((s) => ({ ...s, saveFolders: s.saveFolders.filter((e) => folderOf(e).id !== id), savedIn: s.savedIn.filter((e) => !e.startsWith(`${id}|`)) }))
+  return res.ok ? { ok: true } : res
+}
+
+/** Puts a saved post in exactly these folders (saving it first if needed). */
+export async function setSavedFolders(targetId: string, folderIds: string[]): Promise<Result> {
+  const viewer = await requireViewer()
+  if (typeof targetId !== 'string' || !/^(seed:d\d+|post:\d+|event:[a-z0-9-]+|athlete:(user:[\w-]+|seed:at-[a-z]+))$/.test(targetId)) return { ok: false, error: 'Publicación inválida.' }
+  await db.insert(reactions).values({ targetId, userId: viewer.id, kind: 'guardado' }).onConflictDoNothing()
+  const res = await withSettings((s) => {
+    const valid = new Set(s.saveFolders.map((e) => folderOf(e).id))
+    const keep = s.savedIn.filter((e) => !e.endsWith(`|${targetId}`))
+    return { ...s, savedIn: [...keep, ...folderIds.filter((f) => valid.has(f)).map((f) => `${f}|${targetId}`)] }
+  })
+  return res.ok ? { ok: true } : res
+}

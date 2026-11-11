@@ -44,7 +44,13 @@ export type Settings = {
   muted: string[]
   restricted: string[]
   archived: string[]
+  /** Folders for saved posts, as "id|name". */
+  saveFolders: string[]
+  /** Which saved post is in which folder, as "folderId|targetId". */
+  savedIn: string[]
   notifications: {
+    /** When the person last opened the notifications; anything newer is unread. */
+    lastReadAt: string
     pauseAll: boolean
     quietHours: { enabled: boolean; from: string; to: string }
     push: Record<NotificationKey, boolean>
@@ -115,7 +121,10 @@ export const DEFAULT_SETTINGS: Settings = {
   muted: [],
   restricted: [],
   archived: [],
+  saveFolders: [],
+  savedIn: [],
   notifications: {
+    lastReadAt: '',
     pauseAll: false,
     quietHours: { enabled: false, from: '23:00', to: '07:00' },
     push: allOn(true),

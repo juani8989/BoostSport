@@ -25,6 +25,8 @@ export type FeedPost = {
   supported: boolean
   saved: boolean
   mine: boolean
+  /** Who supported it: Apoyar works as a repost, so the post says who backs it. */
+  boostedBy: { name: string; key: string; others: number } | null
 }
 
 export type FeedComment = { id: string; author: string; body: string; createdAt: string }
@@ -78,6 +80,16 @@ export async function getCompanerosFeed(): Promise<FeedPost[]> {
     db.select({ targetId: comments.targetId, n: count() }).from(comments).where(inArray(comments.targetId, candidateIds)).groupBy(comments.targetId),
     describeParties([...realPosts.map((p) => userKey(p.userId)), ...seedDaily.map((s) => seedAthleteKey(s.athleteId))]),
   ])
+  // Latest supporters per post, for "Apoyado por …".
+  const supportRows = await db
+    .select({ targetId: reactions.targetId, userId: reactions.userId })
+    .from(reactions)
+    .where(and(inArray(reactions.targetId, candidateIds), eq(reactions.kind, 'apoyo')))
+    .orderBy(desc(reactions.createdAt))
+    .limit(400)
+  const supporters = await describeParties([...new Set(supportRows.map((r) => userKey(r.userId)))])
+  const supportBy = new Map<string, string[]>()
+  for (const r of supportRows) supportBy.set(r.targetId, [...(supportBy.get(r.targetId) ?? []), userKey(r.userId)])
 
   const hidden = new Set<string>(reported.map((r) => r.targetId))
   const hiddenAuthors = new Set<string>()
@@ -91,7 +103,7 @@ export async function getCompanerosFeed(): Promise<FeedPost[]> {
   }
   const commentTotals = new Map(commentRows.map((r) => [r.targetId, Number(r.n)]))
 
-  const build = (id: string, author: Party | undefined, base: Omit<FeedPost, 'id' | 'author' | 'likes' | 'apoyos' | 'comments' | 'liked' | 'supported' | 'saved'>, baseLikes = 0, baseComments = 0): FeedPost | null => {
+  const build = (id: string, author: Party | undefined, base: Omit<FeedPost, 'id' | 'author' | 'likes' | 'apoyos' | 'comments' | 'liked' | 'supported' | 'saved' | 'boostedBy'>, baseLikes = 0, baseComments = 0): FeedPost | null => {
     if (!author || hidden.has(id) || hiddenAuthors.has(author.key)) return null
     const t = totals.get(id) ?? {}
     return {
@@ -104,6 +116,11 @@ export async function getCompanerosFeed(): Promise<FeedPost[]> {
       liked: mine.has(`${id}|like`),
       supported: mine.has(`${id}|apoyo`),
       saved: mine.has(`${id}|guardado`),
+      boostedBy: (() => {
+        const keys = (supportBy.get(id) ?? []).filter((k) => !hiddenAuthors.has(k))
+        const who = keys.map((k) => supporters.get(k)).find(Boolean)
+        return who ? { name: who.name, key: who.key, others: keys.length - 1 } : null
+      })(),
     }
   }
 
@@ -129,7 +146,10 @@ export async function getCompanerosFeed(): Promise<FeedPost[]> {
     ),
   ].filter((p): p is FeedPost => p !== null)
 
-  return feed.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  // Apoyar gives reach: each real supporter moves the post up as if it were two hours newer (up to 50).
+  const BOOST_MS = 2 * 60 * 60 * 1000
+  const rank = (p: FeedPost) => new Date(p.createdAt).getTime() + Math.min(totals.get(p.id)?.apoyo ?? 0, 50) * BOOST_MS
+  return feed.sort((a, b) => rank(b) - rank(a))
 }
 
 const MAX_AUDIO_CHARS = 2_800_000 // about 2 MB of audio, roughly a minute and a half

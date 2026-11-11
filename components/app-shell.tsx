@@ -1,12 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Bell, Handshake, House, LogOut, Menu, MessageCircle, Trophy, UserRound } from 'lucide-react'
 import { signOut, type Account, type Role } from '@/lib/auth-store'
 import { roleConfig } from '@/lib/roles'
 import { useAppStore } from '@/components/app-store'
 import { VitrinaFeed } from '@/components/feed/vitrina-feed'
-import { NotificationBanner, NotificationsPanel } from '@/components/notifications'
+import { NotificationBanner, NotificationsPanel, useNotifications } from '@/components/notifications'
 import { NavContext, type MainTab, type Nav } from '@/components/app/nav'
 import { Sheet } from '@/components/app/kit'
 import { usePrefetchTabs } from '@/components/app/prefetch'
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { BrandLine, BrandLogo } from '@/components/brand-logo'
 import { DesktopSidebar } from '@/components/app/desktop-sidebar'
 import { SettingsPanel } from '@/components/settings/settings-panel'
+import type { PageId } from '@/components/settings/types'
 import { ApplyPreferences } from '@/components/settings/apply-preferences'
 
 const tabs: { id: MainTab; label: string; icon: typeof House }[] = [
@@ -44,15 +45,27 @@ const roleBadge: Record<Viewer['role'], string> = {
 }
 
 export function AppShell({ viewer }: { viewer: Viewer }) {
-  const { unreadCount, markAllRead } = useAppStore()
+  const { pushNotification } = useAppStore()
   const [tab, setTab] = useState<MainTab>('inicio')
   const [profileKey, setProfileKey] = useState<string | null>(null)
   const [chatId, setChatId] = useState<number | null>(null)
   const [askAccount, setAskAccount] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
+  const [showSettings, setShowSettings] = useState<false | true | PageId>(false)
   const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
+  const { items: notifications, unread: unreadCount, paused, markRead } = useNotifications(!isGuest)
+  const markAllRead = markRead
+  // A short banner when something new arrives while the app is open (not for what was already there).
+  const newestSeen = useRef<string | null>(null)
+  useEffect(() => {
+    const newest = notifications[0]
+    if (!newest) return
+    if (newestSeen.current !== null && newest.at > newestSeen.current && newest.unread && !paused) {
+      pushNotification({ title: newest.actor.name, body: newest.text, highlight: true })
+    }
+    if (!newestSeen.current || newest.at > newestSeen.current) newestSeen.current = newest.at
+  }, [notifications, paused, pushNotification])
 
   // Links shared from Configuración → Herramientas open that profile.
   useEffect(() => {
@@ -80,12 +93,16 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
       role: viewer.role,
       account: viewer.account,
       goTo,
-      openProfile: (key) => setProfileKey(key),
+      openProfile: (key, postId) => {
+        setSharedPost(postId)
+        setProfileKey(key)
+      },
       openChat: (id) => {
         setProfileKey(null)
         setTab('mensajes')
         setChatId(id)
       },
+      openSettings: (page) => setShowSettings(page ?? true),
       requireAccount: () => {
         if (!isGuest) return true
         setAskAccount(true)
@@ -228,7 +245,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
 
           <NotificationBanner />
           {showNotifications ? <NotificationsPanel onClose={() => setShowNotifications(false)} /> : null}
-          {showSettings ? <SettingsPanel onClose={() => setShowSettings(false)} /> : null}
+          {showSettings ? <SettingsPanel initialPage={showSettings === true ? undefined : showSettings} onClose={() => setShowSettings(false)} /> : null}
           <ApplyPreferences enabled={!isGuest} />
           {askAccount ? (
             <Sheet title="Creá tu cuenta" onClose={() => setAskAccount(false)}>
