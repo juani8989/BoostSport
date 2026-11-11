@@ -13,8 +13,11 @@ export const pool =
   globalForDb.pgPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 10,
-    idleTimeoutMillis: dev ? 10 * 60_000 : 60_000,
+    // Supabase's pooler caps client connections (tightly in session mode). In production
+    // many function instances run at once, so each keeps few connections and frees them
+    // fast; extra queries in a request wait for a free connection instead of failing.
+    max: dev ? 10 : 3,
+    idleTimeoutMillis: dev ? 10 * 60_000 : 5_000,
     keepAlive: true,
   })
 
