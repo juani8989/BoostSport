@@ -8,7 +8,7 @@ import { describeParties, getViewer, requireViewer, userKey, type Party } from '
 import { seedAthleteFromKey, seedAthleteKey, seedDaily } from '@/lib/catalog'
 import { rutaPosts, vitrinaPosts } from '@/lib/data'
 import type { AthleteProfile, PressKind, PressLink } from '@/lib/profile-types'
-import { assertPublicUrl, previewLink, searchNews } from '@/lib/press'
+import { assertPublicUrl, previewLink, searchMedia } from '@/lib/press'
 import type { OfferMeta } from '@/app/actions/match'
 import { getSettings } from '@/lib/user-settings'
 
@@ -274,6 +274,8 @@ export async function updateMyAthleteProfile(next: AthleteProfile): Promise<Resu
     // Managed from the Menciones tab, not from the profile form.
     press: current.press,
     pressHidden: current.pressHidden,
+    nicknames: [...new Set((Array.isArray(next.nicknames) ? next.nicknames : []).map((n) => String(n).trim().slice(0, 40)).filter(Boolean))].slice(0, 8),
+    club: typeof next.club === 'string' ? next.club.trim().slice(0, 80) : undefined,
   }
   if (JSON.stringify(merged).length > 3_000_000) return { ok: false, error: 'El perfil es demasiado grande.' }
   await db.update(profiles).set({ data: merged, updatedAt: new Date() }).where(eq(profiles.userId, viewer.id))
@@ -288,11 +290,22 @@ export async function getMyOrgSummary() {
 
 async function newsFor(profile: AthleteProfile, name: string): Promise<PressLink[]> {
   if (name.trim().split(/\s+/).length < 2) return []
-  // Well-known athletes are found by name alone; for the rest the discipline avoids namesakes.
-  const context = profile.famous || profile.wikiUrl ? '' : profile.discipline
+  const handles = Object.values(profile.socials ?? {})
+    .map((h) => String(h ?? '').trim())
+    .filter((h) => h.length >= 4)
+    .map((h) => (h.startsWith('@') ? h : `@${h.replace(/^https?:\/\/[^/]+\//, '')}`))
+  const found = await searchMedia({
+    name: name.trim(),
+    nicknames: (profile.nicknames ?? []).map((n) => n.trim()).filter((n) => n.length >= 3),
+    handles: [...new Set(handles)],
+    discipline: profile.discipline ?? '',
+    club: profile.club ?? '',
+    country: profile.country ?? '',
+    famous: !!(profile.famous || profile.wikiUrl),
+  })
   const hidden = new Set(profile.pressHidden ?? [])
   const added = new Set((profile.press ?? []).map((p) => p.url))
-  return (await searchNews(name, context)).filter((n) => !hidden.has(n.url) && !added.has(n.url)).slice(0, 10)
+  return found.filter((n) => !hidden.has(n.url) && !added.has(n.url))
 }
 
 const PRESS_KINDS: PressKind[] = ['noticia', 'entrevista', 'video', 'podcast', 'link']

@@ -76,6 +76,17 @@ export function AthleteProfileForm({
         <Field label="Disciplina" list="athlete-disciplines" value={p.discipline} onChange={text('discipline')} error={errors.discipline} />
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label="Apodos o cómo te conocen"
+          hint="Separados por coma. Los usamos para encontrarte en noticias y videos."
+          placeholder="Ej: La Peque, Juani"
+          value={(p.nicknames ?? []).join(', ')}
+          onChange={(e) => set('nicknames', e.target.value.split(',').map((n) => n.trimStart()).slice(0, 8))}
+        />
+        <Field label="Club o equipo" placeholder="Ej: Club Atlético Rosario" value={p.club ?? ''} onChange={(e) => set('club', e.target.value)} />
+      </div>
+
       <TextareaField label="Objetivos" placeholder="Ej: clasificar al Panamericano 2027" value={p.goals} onChange={text('goals')} error={errors.goals} />
       <TextareaField label="Logros" hint="Uno por línea" value={p.achievements} onChange={text('achievements')} error={errors.achievements} />
       <TextareaField label="Reconocimientos" hint="Premios, becas, distinciones. Uno por línea" value={p.recognitions} onChange={text('recognitions')} />

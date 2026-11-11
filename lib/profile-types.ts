@@ -23,6 +23,10 @@ export type AthleteProfile = {
   selfie?: string
   wikiUrl?: string
   summary?: string
+  /** How people know them (nicknames, short names); used to find them in the news. */
+  nicknames?: string[]
+  /** Club, team or academy. */
+  club?: string
   age: string
   goals: string
   achievements: string
