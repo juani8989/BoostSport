@@ -20,6 +20,7 @@ import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
 import { ShareSheet } from '@/components/share/share-sheet'
 import { useCheer } from '@/components/app/cheer'
 import { ZoomableImage } from '@/components/posts/zoomable-image'
+import { useHeartBursts, useTapGestures } from '@/components/posts/tap-gestures'
 import { PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { useSettings } from '@/components/settings/use-settings'
@@ -41,6 +42,28 @@ export function CompanerosFeed() {
   const [savedToast, setSavedToast] = useState<string | null>(null)
   const [cheer, fireCheer] = useCheer()
   const [cheerFor, setCheerFor] = useState<string | null>(null)
+  const [hearts, popHeart] = useHeartBursts()
+  const [heartFor, setHeartFor] = useState<string | null>(null)
+  // Double tap = like, double tap holding the second tap = Apoyar. Never takes them back.
+  const gestureTarget = useRef<FeedPost | null>(null)
+  const gestures = useTapGestures({
+    onDoubleTap: (x, y) => {
+      const post = gestureTarget.current
+      if (!post || !nav.requireAccount()) return
+      setHeartFor(post.id)
+      popHeart(x, y)
+      if (!post.liked) react(post, 'like')
+    },
+    onHold: () => {
+      const post = gestureTarget.current
+      if (!post || !nav.requireAccount()) return
+      if (!post.supported) react(post, 'apoyo')
+      else {
+        setCheerFor(post.id)
+        fireCheer()
+      }
+    },
+  })
   const [sharing, setSharing] = useState<FeedPost | null>(null)
   const [folderFor, setFolderFor] = useState<string | null>(null)
   const { settings } = useSettings(nav.role !== 'invitado')
@@ -85,11 +108,27 @@ export function CompanerosFeed() {
   return (
     <>
       {data.map((post, index) => (
-        <article key={post.id} className="relative h-full w-full shrink-0 snap-start snap-always overflow-hidden">
+        <article
+          key={post.id}
+          className="relative h-full w-full shrink-0 snap-start snap-always overflow-hidden"
+          onPointerDown={(e) => {
+            gestureTarget.current = post
+            gestures.onPointerDown(e)
+          }}
+          onPointerMove={gestures.onPointerMove}
+          onPointerUp={gestures.onPointerUp}
+          onPointerCancel={gestures.onPointerCancel}
+        >
           {cheerFor === post.id ? cheer : null}
+          {heartFor === post.id ? hearts : null}
           {post.image ? (
             // Pinch or double tap to zoom; once zoomed, the button to zoom back out shows up.
-            <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={index <= 1} className="object-cover" hideButton />
+            <>
+              {/* Wide screens: the photo shows whole, with a blurred copy filling the sides. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img aria-hidden src={post.image} alt="" loading={index > 1 ? 'lazy' : 'eager'} className="absolute inset-0 hidden size-full scale-110 object-cover opacity-60 blur-2xl md:block" />
+              <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={index <= 1} className="object-cover md:object-contain" hideButton />
+            </>
           ) : (
             <div aria-hidden className={cn('absolute inset-0 opacity-30', kindMeta[post.kind].className)} />
           )}

@@ -54,6 +54,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [showSettings, setShowSettings] = useState<false | true | PageId>(false)
   const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
+  const fullWidth = (tab === 'inicio' || tab === 'vitrina') && !profileKey && chatId === null
   const { items: notifications, unread: unreadCount, paused, markRead } = useNotifications(!isGuest)
   const markAllRead = markRead
   // A short banner when something new arrives while the app is open (not for what was already there).
@@ -134,7 +135,13 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
         />
         <div className="flex w-full min-w-0 justify-center md:flex-1 md:bg-secondary/40">
         {/* On computers this is a centered content column; on phones it fills the screen as before. */}
-        <div className="relative h-dvh w-full overflow-hidden bg-background md:max-w-[640px] md:border-x md:border-border">
+        <div
+          className={cn(
+            'relative h-dvh w-full overflow-hidden bg-background',
+            // Feeds use the whole screen on computers; profile, messages and Match stay in a readable column.
+            fullWidth ? 'md:max-w-none' : 'md:max-w-[640px] md:border-x md:border-border',
+          )}
+        >
           <BrandLine className="absolute inset-x-0 top-0 z-40" />
           <header className="pointer-events-none absolute inset-x-0 top-0.5 z-30 flex md:hidden items-center justify-between gap-2 bg-gradient-to-b from-background/90 to-transparent px-4 pb-6 pt-4">
             <p>

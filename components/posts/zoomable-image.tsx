@@ -7,10 +7,10 @@ import { cn } from '@/lib/utils'
 type View = { scale: number; x: number; y: number }
 const MAX = 4
 
-/** Image with pinch zoom, double-tap zoom and drag to pan while zoomed. */
+/** Image with pinch zoom (and the zoom button) and drag to pan while zoomed. Double tap is left to the post: it's a like. */
 export function ZoomableImage({ src, alt, className, eager, hideButton }: { src: string; alt: string; className?: string; eager?: boolean; hideButton?: boolean }) {
   const [view, setView] = useState<View>({ scale: 1, x: 0, y: 0 })
-  const gesture = useRef<{ dist?: number; scale: number; px?: number; py?: number; x: number; y: number; lastTap?: number }>({ scale: 1, x: 0, y: 0 })
+  const gesture = useRef<{ dist?: number; scale: number; px?: number; py?: number; x: number; y: number; }>({ scale: 1, x: 0, y: 0 })
   const zoomed = view.scale > 1.01
 
   const clamp = (v: View): View => {
@@ -18,14 +18,6 @@ export function ZoomableImage({ src, alt, className, eager, hideButton }: { src:
     if (scale === 1) return { scale: 1, x: 0, y: 0 }
     const limit = ((scale - 1) / scale) * 220
     return { scale, x: Math.max(-limit, Math.min(limit, v.x)), y: Math.max(-limit, Math.min(limit, v.y)) }
-  }
-
-  function toggleAt(clientX: number, clientY: number, rect: DOMRect) {
-    if (zoomed) return setView({ scale: 1, x: 0, y: 0 })
-    const scale = 2.5
-    const x = ((rect.left + rect.width / 2 - clientX) / scale) * (scale - 1)
-    const y = ((rect.top + rect.height / 2 - clientY) / scale) * (scale - 1)
-    setView(clamp({ scale, x, y }))
   }
 
   function onTouchStart(e: React.TouchEvent) {
@@ -36,13 +28,6 @@ export function ZoomableImage({ src, alt, className, eager, hideButton }: { src:
       g.scale = view.scale
     } else if (e.touches.length === 1) {
       const t = e.touches[0]
-      const now = Date.now()
-      if (g.lastTap && now - g.lastTap < 280) {
-        toggleAt(t.clientX, t.clientY, e.currentTarget.getBoundingClientRect())
-        g.lastTap = undefined
-        return
-      }
-      g.lastTap = now
       g.px = t.clientX
       g.py = t.clientY
       g.x = view.x
@@ -77,7 +62,6 @@ export function ZoomableImage({ src, alt, className, eager, hideButton }: { src:
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      onDoubleClick={(e) => toggleAt(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect())}
       onWheel={onWheel}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}

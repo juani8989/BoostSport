@@ -213,3 +213,16 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-match-intro, .animate-match-intro-backdrop { animation-duration: 0.9s; }
 }
+
+/* Double tap to like: a heart pops where you tapped. */
+@keyframes heart-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) rotate(-12deg); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(6deg); }
+  45% { transform: translate(-50%, -50%) scale(0.95) rotate(0deg); }
+  70% { opacity: 1; transform: translate(-50%, -60%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -110%) scale(0.8); }
+}
+.animate-heart-pop { animation: heart-pop 0.9s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-heart-pop { animation-duration: 0.5s; }
+}
