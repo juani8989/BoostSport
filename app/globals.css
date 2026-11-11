@@ -226,3 +226,30 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-heart-pop { animation-duration: 0.5s; }
 }
+
+/* Welcome tutorial: small looping demos of each gesture. */
+@keyframes tut-scroll { 0%, 15% { transform: translateY(0); } 45%, 60% { transform: translateY(-50%); } 90%, 100% { transform: translateY(0); } }
+@keyframes tut-tap { 0%, 100% { transform: scale(1); opacity: 0; } 10% { opacity: 0.9; transform: scale(0.8); } 25% { opacity: 0; transform: scale(1.6); } 35% { opacity: 0.9; transform: scale(0.8); } 50% { opacity: 0; transform: scale(1.6); } }
+@keyframes tut-heart { 0%, 40% { opacity: 0; transform: scale(0.3); } 55% { opacity: 1; transform: scale(1.15); } 70% { transform: scale(1); opacity: 1; } 95%, 100% { opacity: 0; transform: translateY(-14px) scale(0.9); } }
+@keyframes tut-hold { 0%, 30% { transform: scale(0.8); opacity: 0.9; } 60%, 85% { transform: scale(1.25); opacity: 0.5; } 100% { opacity: 0; } }
+@keyframes tut-pinch-a { 0%, 20% { transform: translate(0, 0); } 60%, 80% { transform: translate(-18px, -18px); } 100% { transform: translate(0, 0); } }
+@keyframes tut-pinch-b { 0%, 20% { transform: translate(0, 0); } 60%, 80% { transform: translate(18px, 18px); } 100% { transform: translate(0, 0); } }
+@keyframes tut-zoom { 0%, 20% { transform: scale(1); } 60%, 80% { transform: scale(1.6); } 100% { transform: scale(1); } }
+@keyframes tut-card { 0%, 10% { transform: translateX(0) rotate(0); } 35%, 45% { transform: translateX(46px) rotate(10deg); } 55% { transform: translateX(0) rotate(0); } 80%, 90% { transform: translateX(-46px) rotate(-10deg); } 100% { transform: translateX(0) rotate(0); } }
+@keyframes tut-like-stamp { 0%, 25% { opacity: 0; } 35%, 45% { opacity: 1; } 55%, 100% { opacity: 0; } }
+@keyframes tut-pass-stamp { 0%, 70% { opacity: 0; } 80%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes tut-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.animate-tut-scroll { animation: tut-scroll 3.2s ease-in-out infinite; }
+.animate-tut-tap { animation: tut-tap 2.4s ease-out infinite; }
+.animate-tut-heart { animation: tut-heart 2.4s ease-out infinite; }
+.animate-tut-hold { animation: tut-hold 2.4s ease-out infinite; }
+.animate-tut-pinch-a { animation: tut-pinch-a 2.6s ease-in-out infinite; }
+.animate-tut-pinch-b { animation: tut-pinch-b 2.6s ease-in-out infinite; }
+.animate-tut-zoom { animation: tut-zoom 2.6s ease-in-out infinite; }
+.animate-tut-card { animation: tut-card 3.4s ease-in-out infinite; }
+.animate-tut-like-stamp { animation: tut-like-stamp 3.4s ease-in-out infinite; }
+.animate-tut-pass-stamp { animation: tut-pass-stamp 3.4s ease-in-out infinite; }
+.animate-tut-float { animation: tut-float 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-tut-'] { animation: none !important; }
+}
