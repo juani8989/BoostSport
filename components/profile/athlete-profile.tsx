@@ -168,10 +168,6 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
                 <Settings2 className="size-4" />
                 Mis datos
               </button>
-              <button type="button" onClick={() => nav.goTo('mensajes')} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-olympic-blue py-2.5 text-sm font-bold text-olympic-white">
-                <MessageCircle className="size-4" />
-                Mensajes
-              </button>
             </>
           ) : (
             <>
