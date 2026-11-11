@@ -37,8 +37,8 @@ export function Slide({
         aria-hidden
         className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-background/30"
       />
-      <div className="relative flex h-full items-end gap-3 px-4 pb-24 pt-28">
-        <div className="flex min-w-0 flex-1 flex-col gap-3">{children}</div>
+      <div className="relative flex h-full items-end gap-3 px-4 pb-24 pt-28 md:px-8">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 md:max-w-md">{children}</div>
         {rail}
       </div>
     </article>
@@ -105,11 +105,11 @@ function RailButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className="flex flex-col items-center gap-1 text-foreground"
+      className="flex flex-col items-center gap-1 text-foreground md:flex-row md:gap-1 md:pr-2"
     >
       <span
         className={cn(
-          'flex size-11 items-center justify-center rounded-full bg-foreground/15 backdrop-blur transition-colors',
+          'flex size-11 items-center justify-center rounded-full bg-foreground/15 backdrop-blur transition-colors md:size-10',
           active && 'bg-accent text-accent-foreground',
         )}
       >
@@ -129,7 +129,7 @@ export function ActionRail({ postId, applause }: { postId: string; applause: num
   const [sharing, setSharing] = useState(false)
 
   return (
-    <div className="flex shrink-0 flex-col items-center gap-4 pb-2">
+    <div className="flex shrink-0 flex-col items-center gap-4 pb-2 md:absolute md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:flex-row md:gap-1 md:rounded-full md:bg-background/80 md:px-3 md:py-1.5 md:shadow-xl md:pb-1.5">
       <RailButton
         label="Aplaudir"
         count={String(applause + (clapped ? 1 : 0))}

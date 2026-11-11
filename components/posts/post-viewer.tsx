@@ -32,6 +32,7 @@ import { ZoomableImage } from '@/components/posts/zoomable-image'
 import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
 import { ShareSheet } from '@/components/share/share-sheet'
 import { useCheer } from '@/components/app/cheer'
+import { FeedArrows } from '@/components/app/feed-arrows'
 import { useHeartBursts, useTapGestures } from '@/components/posts/tap-gestures'
 import { cn } from '@/lib/utils'
 import { load } from '@/lib/load'
@@ -155,6 +156,7 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
         ))}
       </div>
 
+      <FeedArrows target={scroller} className="right-3 top-1/2 -translate-y-1/2" />
       {sheet?.type === 'comments' ? <CommentsSheet post={sheet.post} onClose={() => setSheet(null)} onAdded={() => mutate()} /> : null}
       {sheet?.type === 'people' ? <PeopleSheet post={sheet.post} onClose={() => setSheet(null)} /> : null}
       {sheet?.type === 'donate' ? <DonateSheet post={sheet.post} onClose={() => setSheet(null)} onDone={() => patch(sheet.post.id, { donated: true, donations: sheet.post.donations + (sheet.post.donated ? 0 : 1) })} /> : null}

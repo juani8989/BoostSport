@@ -19,6 +19,7 @@ import { OrgProfileView } from '@/components/profile/org-profile'
 import { cn } from '@/lib/utils'
 import { BrandLine, BrandLogo } from '@/components/brand-logo'
 import { DesktopSidebar } from '@/components/app/desktop-sidebar'
+import { FeedArrows } from '@/components/app/feed-arrows'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import type { PageId } from '@/components/settings/types'
 import { ApplyPreferences } from '@/components/settings/apply-preferences'
@@ -56,6 +57,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [showSettings, setShowSettings] = useState<false | true | PageId>(false)
   const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
+  const vitrinaScroller = useRef<HTMLDivElement>(null)
   const fullWidth = (tab === 'inicio' || tab === 'vitrina') && !profileKey && chatId === null
 
   // Welcome tutorial: once per account (saved in its settings), and again from Ayuda.
@@ -210,8 +212,11 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
           <div className="h-full">
             {tab === 'inicio' ? <HomeFeed /> : null}
             {tab === 'vitrina' ? (
-              <div className="h-full snap-y snap-mandatory overflow-y-auto no-scrollbar">
-                <VitrinaFeed />
+              <div className="relative h-full">
+                <div ref={vitrinaScroller} className="h-full snap-y snap-mandatory overflow-y-auto no-scrollbar">
+                  <VitrinaFeed />
+                </div>
+                <FeedArrows target={vitrinaScroller} className="right-4 top-28" />
               </div>
             ) : null}
             {tab === 'match' && !isGuest ? <MatchDeck /> : null}
