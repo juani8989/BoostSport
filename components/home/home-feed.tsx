@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNav } from '@/components/app/nav'
 import { CompanerosFeed } from '@/components/home/companeros-feed'
 import { EmpresasFeed } from '@/components/home/empresas-feed'
@@ -8,6 +8,7 @@ import { EventosFeed } from '@/components/home/eventos-feed'
 import { EventAthletesFeed } from '@/components/event/event-athletes-feed'
 import { EventBrandsFeed } from '@/components/event/event-brands-feed'
 import { cn } from '@/lib/utils'
+import { FeedArrows } from '@/components/app/feed-arrows'
 
 type Segment = 'companeros' | 'empresas' | 'eventos' | 'deportistas' | 'marcas'
 
@@ -37,6 +38,7 @@ export function HomeFeed() {
   const segments = segmentsFor(role)
   const [segment, setSegment] = useState<Segment>(segments[0])
   const isEventList = segment === 'deportistas' || segment === 'marcas'
+  const scroller = useRef<HTMLDivElement>(null)
 
   return (
     <div className="relative h-full">
@@ -62,9 +64,12 @@ export function HomeFeed() {
           {segment === 'deportistas' ? <EventAthletesFeed /> : <EventBrandsFeed />}
         </div>
       ) : (
-        <div key={segment} className="h-full snap-y snap-mandatory overflow-y-scroll [scrollbar-width:none]">
-          {segment === 'companeros' ? <CompanerosFeed /> : segment === 'empresas' ? <EmpresasFeed /> : <EventosFeed />}
-        </div>
+        <>
+          <div ref={scroller} key={segment} className="h-full snap-y snap-mandatory overflow-y-scroll [scrollbar-width:none]">
+            {segment === 'companeros' ? <CompanerosFeed /> : segment === 'empresas' ? <EmpresasFeed /> : <EventosFeed />}
+          </div>
+          <FeedArrows key={`arrows-${segment}`} target={scroller} className="right-4 top-44" />
+        </>
       )}
     </div>
   )
