@@ -192,8 +192,17 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
         </button>
       </div>
       {editing ? (
-        <Sheet title="Editar perfil" onClose={() => setEditing(false)} tall>
-          <OrgProfileForm initial={profile} pending={pending} error={error} onSubmit={save} />
+        <Sheet
+          title="Editar perfil"
+          onClose={() => setEditing(false)}
+          action={
+            <button type="submit" form="org-profile-form" disabled={pending} className="rounded-full bg-olympic-blue px-4 py-2 text-sm font-bold text-olympic-white disabled:opacity-60">
+              {pending ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          }
+        >
+          {error ? <p role="alert" className="mb-4 rounded-xl bg-destructive/15 px-4 py-3 text-sm text-destructive">{error}</p> : null}
+          <OrgProfileForm formId="org-profile-form" hideSubmit initial={profile} pending={pending} error={error} onSubmit={save} />
         </Sheet>
       ) : null}
     </div>

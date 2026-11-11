@@ -383,8 +383,17 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
       ) : null}
 
       {editing && nav.account?.profile.kind === 'deportista' ? (
-        <Sheet title="Mis datos" onClose={() => setEditing(false)} tall>
-          <AthleteProfileForm initial={nav.account.profile} pending={pending} error={error} onSubmit={save} submitLabel="Guardar cambios" pendingLabel="Guardando…" />
+        <Sheet
+          title="Mis datos"
+          onClose={() => setEditing(false)}
+          action={
+            <button type="submit" form="athlete-profile-form" disabled={pending} className="rounded-full bg-olympic-blue px-4 py-2 text-sm font-bold text-olympic-white disabled:opacity-60">
+              {pending ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          }
+        >
+          {error ? <p role="alert" className="mb-4 rounded-xl bg-destructive/15 px-4 py-3 text-sm text-destructive">{error}</p> : null}
+          <AthleteProfileForm formId="athlete-profile-form" hideSubmit initial={nav.account.profile} pending={pending} error={error} onSubmit={save} />
         </Sheet>
       ) : null}
     </div>

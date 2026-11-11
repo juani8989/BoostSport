@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import type { Party } from '@/lib/viewer'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +24,8 @@ export function PartyAvatar({ party, className }: { party: Pick<Party, 'name' | 
   )
 }
 
-export function Sheet({ title, onClose, children, tall }: { title: string; onClose: () => void; children: React.ReactNode; tall?: boolean }) {
+/** A screen of its own over the app: back arrow, title and scrollable content. */
+export function Sheet({ title, onClose, children, action }: { title: string; onClose: () => void; children: React.ReactNode; tall?: boolean; action?: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -32,23 +33,21 @@ export function Sheet({ title, onClose, children, tall }: { title: string; onClo
   }, [onClose])
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col justify-end">
-      <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-olympic-black/60" />
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className={cn('relative flex max-h-[88%] flex-col rounded-t-3xl border-t border-border bg-card text-card-foreground', tall && 'h-[88%]')}
-      >
-        <header className="flex items-center justify-between gap-2 border-b border-border px-5 py-4">
-          <h2 className="font-display text-xl font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="flex size-9 items-center justify-center rounded-full bg-secondary">
-            <X className="size-4" />
-          </button>
-        </header>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4">{children}</div>
-      </section>
-    </div>
+    <section
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="absolute inset-0 z-50 flex flex-col bg-background text-foreground animate-in slide-in-from-right-8 fade-in duration-200 motion-reduce:animate-none"
+    >
+      <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 pb-3 pt-5">
+        <button type="button" onClick={onClose} aria-label="Volver" className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-secondary">
+          <ArrowLeft className="size-5" />
+        </button>
+        <h2 className="min-w-0 flex-1 truncate font-display text-lg font-semibold">{title}</h2>
+        {action ? <div className="shrink-0 pr-2">{action}</div> : null}
+      </header>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4 pb-8">{children}</div>
+    </section>
   )
 }
 

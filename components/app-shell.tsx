@@ -18,6 +18,7 @@ import { AthleteProfileView } from '@/components/profile/athlete-profile'
 import { OrgProfileView } from '@/components/profile/org-profile'
 import { cn } from '@/lib/utils'
 import { BrandLine, BrandLogo } from '@/components/brand-logo'
+import { DesktopSidebar } from '@/components/app/desktop-sidebar'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import { ApplyPreferences } from '@/components/settings/apply-preferences'
 
@@ -98,10 +99,27 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
 
   return (
     <NavContext.Provider value={nav}>
-      <main className="flex min-h-dvh items-center justify-center md:py-6">
-        <div className="relative h-dvh w-full overflow-hidden bg-background md:h-[min(860px,calc(100dvh-3rem))] md:max-w-[420px] md:rounded-[2.5rem] md:border md:border-border md:shadow-2xl">
+      <main className="flex min-h-dvh items-center justify-center md:items-stretch md:justify-start">
+        <DesktopSidebar
+          tabs={visibleTabs}
+          active={profileKey ? null : tab}
+          onTab={goTo}
+          isGuest={isGuest}
+          name={viewer.name}
+          roleLabel={roleLabel}
+          roleClass={roleBadge[viewer.role]}
+          unreadCount={unreadCount}
+          onNotifications={() => {
+            setShowNotifications(true)
+            markAllRead()
+          }}
+          onSettings={() => setShowSettings(true)}
+        />
+        <div className="flex w-full min-w-0 justify-center md:flex-1 md:bg-secondary/40">
+        {/* On computers this is a centered content column; on phones it fills the screen as before. */}
+        <div className="relative h-dvh w-full overflow-hidden bg-background md:max-w-[640px] md:border-x md:border-border">
           <BrandLine className="absolute inset-x-0 top-0 z-40" />
-          <header className="pointer-events-none absolute inset-x-0 top-0.5 z-30 flex items-center justify-between gap-2 bg-gradient-to-b from-background/90 to-transparent px-4 pb-6 pt-4">
+          <header className="pointer-events-none absolute inset-x-0 top-0.5 z-30 flex md:hidden items-center justify-between gap-2 bg-gradient-to-b from-background/90 to-transparent px-4 pb-6 pt-4">
             <p>
               <BrandLogo className="h-7 rounded-md" />
             </p>
@@ -175,7 +193,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
             </div>
           ) : null}
 
-          <nav aria-label="Secciones" className="absolute inset-x-0 bottom-0 z-30 border-t border-border bg-background/90 px-3 pb-4 pt-2 backdrop-blur">
+          <nav aria-label="Secciones" className="absolute inset-x-0 bottom-0 z-30 border-t md:hidden border-border bg-background/90 px-3 pb-4 pt-2 backdrop-blur">
             <ul className={cn('flex items-end', isGuest ? 'justify-around' : 'justify-between')}>
               {visibleTabs.map(({ id, label, icon: Icon }) => {
                 const active = tab === id && !profileKey
@@ -224,6 +242,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
               </div>
             </Sheet>
           ) : null}
+        </div>
         </div>
       </main>
     </NavContext.Provider>
