@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR, { mutate as globalMutate } from 'swr'
-import { ArrowLeft, BadgeCheck, Handshake, HandHeart, Heart, Loader2, MessageCircle, Settings2, Target, Trophy, UserPlus, UserCheck } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Bookmark, Handshake, HandHeart, Heart, Loader2, MessageCircle, Settings2, Target, Trophy, UserPlus, UserCheck } from 'lucide-react'
 import { getAthleteMentions, getAthleteProfile, updateMyAthleteProfile } from '@/app/actions/athlete'
 import { toggleFollow, toggleReaction } from '@/app/actions/social'
 import { swipe } from '@/app/actions/match'
@@ -111,7 +111,18 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
     <div className="flex h-full flex-col overflow-y-auto pb-24">
       <section className="relative flex flex-col items-center gap-3 px-4 pb-5 pt-20 text-center">
         {data.isMe ? (
-          <CreateMenu onCompose={setComposing} onAddPress={() => setAddingPress(true)} />
+          <>
+            <CreateMenu onCompose={setComposing} onAddPress={() => setAddingPress(true)} />
+            <button
+              type="button"
+              onClick={() => nav.openSettings('guardados')}
+              aria-label="Guardados"
+              title="Guardados"
+              className="absolute right-4 top-16 z-20 flex size-10 items-center justify-center rounded-xl border-2 border-foreground"
+            >
+              <Bookmark className="size-5" />
+            </button>
+          </>
         ) : null}
         <PartyAvatar party={data.party} className="size-24 ring-4" />
         <div className="flex flex-col items-center gap-1">

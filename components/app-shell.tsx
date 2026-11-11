@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { BrandLine, BrandLogo } from '@/components/brand-logo'
 import { DesktopSidebar } from '@/components/app/desktop-sidebar'
 import { SettingsPanel } from '@/components/settings/settings-panel'
+import type { PageId } from '@/components/settings/types'
 import { ApplyPreferences } from '@/components/settings/apply-preferences'
 
 const tabs: { id: MainTab; label: string; icon: typeof House }[] = [
@@ -50,7 +51,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [chatId, setChatId] = useState<number | null>(null)
   const [askAccount, setAskAccount] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
+  const [showSettings, setShowSettings] = useState<false | true | PageId>(false)
   const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
   const { items: notifications, unread: unreadCount, paused, markRead } = useNotifications(!isGuest)
@@ -101,6 +102,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
         setTab('mensajes')
         setChatId(id)
       },
+      openSettings: (page) => setShowSettings(page ?? true),
       requireAccount: () => {
         if (!isGuest) return true
         setAskAccount(true)
@@ -243,7 +245,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
 
           <NotificationBanner />
           {showNotifications ? <NotificationsPanel onClose={() => setShowNotifications(false)} /> : null}
-          {showSettings ? <SettingsPanel onClose={() => setShowSettings(false)} /> : null}
+          {showSettings ? <SettingsPanel initialPage={showSettings === true ? undefined : showSettings} onClose={() => setShowSettings(false)} /> : null}
           <ApplyPreferences enabled={!isGuest} />
           {askAccount ? (
             <Sheet title="Creá tu cuenta" onClose={() => setAskAccount(false)}>

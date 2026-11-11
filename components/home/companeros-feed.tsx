@@ -16,6 +16,8 @@ import {
 import type { DailyKind } from '@/lib/catalog'
 import { useNav } from '@/components/app/nav'
 import { storeMedia } from '@/lib/upload'
+import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
+import { ShareSheet } from '@/components/share/share-sheet'
 import { PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { useSettings } from '@/components/settings/use-settings'
@@ -34,6 +36,9 @@ export function CompanerosFeed() {
   const [commentsFor, setCommentsFor] = useState<FeedPost | null>(null)
   const [menuFor, setMenuFor] = useState<FeedPost | null>(null)
   const [composing, setComposing] = useState(false)
+  const [savedToast, setSavedToast] = useState<string | null>(null)
+  const [sharing, setSharing] = useState<FeedPost | null>(null)
+  const [folderFor, setFolderFor] = useState<string | null>(null)
   const { settings } = useSettings(nav.role !== 'invitado')
   const hideCounts = settings.feed.hideLikeCounts
 
@@ -52,14 +57,13 @@ export function CompanerosFeed() {
   async function save(post: FeedPost) {
     if (!nav.requireAccount()) return
     mutate((prev) => prev?.map((p) => (p.id === post.id ? { ...p, saved: !p.saved } : p)), { revalidate: false })
+    setSavedToast(post.saved ? null : post.id)
     await toggleReaction(post.id, 'guardado')
     globalMutate('saved')
   }
 
-  async function share(post: FeedPost) {
-    const text = `${post.author.name} en BoostSport: ${post.body}`
-    if (navigator.share) await navigator.share({ title: 'BoostSport', text }).catch(() => {})
-    else await navigator.clipboard?.writeText(text).catch(() => {})
+  function share(post: FeedPost) {
+    setSharing(post)
   }
 
   if (isLoading || !data) {
@@ -137,6 +141,20 @@ export function CompanerosFeed() {
       {commentsFor ? <CommentsSheet post={commentsFor} onClose={() => setCommentsFor(null)} onAdded={() => mutate()} /> : null}
       {menuFor ? <PostMenu post={menuFor} onClose={() => setMenuFor(null)} onDone={() => mutate()} /> : null}
       {composing ? <Composer onClose={() => setComposing(false)} onPosted={() => mutate()} /> : null}
+      {savedToast ? <SavedToast onChoose={() => (setFolderFor(savedToast), setSavedToast(null))} onDone={() => setSavedToast(null)} /> : null}
+      {folderFor ? <SaveFolderSheet targetId={folderFor} onClose={() => setFolderFor(null)} /> : null}
+      {sharing ? (
+        <ShareSheet
+          item={{
+            text: `${sharing.author.name} en BoostSport: ${sharing.body.slice(0, 120)}`,
+            url: `${window.location.origin}/?perfil=${encodeURIComponent(sharing.author.key)}&post=${encodeURIComponent(sharing.id)}`,
+            title: sharing.author.name,
+            subtitle: sharing.body,
+            image: sharing.image,
+          }}
+          onClose={() => setSharing(null)}
+        />
+      ) : null}
     </>
   )
 }

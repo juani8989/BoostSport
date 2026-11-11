@@ -29,6 +29,8 @@ import { PartyAvatar, Sheet, compactNumber, timeAgo } from '@/components/app/kit
 import { CommentsSheet } from '@/components/home/companeros-feed'
 import { useSettings } from '@/components/settings/use-settings'
 import { ZoomableImage } from '@/components/posts/zoomable-image'
+import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
+import { ShareSheet } from '@/components/share/share-sheet'
 import { cn } from '@/lib/utils'
 import { load } from '@/lib/load'
 
@@ -56,6 +58,10 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
   const [muted, setMuted] = useState(!settings.feed.autoplay)
   const [sheet, setSheet] = useState<{ type: 'comments' | 'people' | 'donate' | 'menu'; post: ViewerPost } | null>(null)
   const positioned = useRef(false)
+  const [savedToast, setSavedToast] = useState<string | null>(null)
+  const [folderFor, setFolderFor] = useState<string | null>(null)
+  const [sharing, setSharing] = useState<string | null>(null)
+  const sharedPost = data?.find((p) => p.id === sharing)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !sheet && onClose()
@@ -78,6 +84,7 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
     if (!nav.requireAccount()) return
     const on = !post[flag]
     patch(post.id, { [flag]: on, ...(counter ? { [counter]: post[counter] + (on ? 1 : -1) } : {}) } as Partial<ViewerPost>)
+    if (kind === 'guardado') setSavedToast(on ? post.id : null)
     await toggleReaction(post.id, kind)
     globalMutate('companeros')
     if (kind === 'guardado') globalMutate('saved')
@@ -90,11 +97,8 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
     globalMutate(['athlete', profileKey])
   }
 
-  async function share(post: ViewerPost) {
-    const url = `${window.location.origin}/?perfil=${encodeURIComponent(post.author.key)}&post=${encodeURIComponent(post.id)}`
-    const text = `${post.author.name} en BoostSport: ${post.body.slice(0, 120)}`
-    if (navigator.share) await navigator.share({ title: 'BoostSport', text, url }).catch(() => {})
-    else await navigator.clipboard?.writeText(`${text} ${url}`).catch(() => {})
+  function share(post: ViewerPost) {
+    setSharing(post.id)
   }
 
   const hideCounts = settings.feed.hideLikeCounts
@@ -144,6 +148,21 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
       {sheet?.type === 'comments' ? <CommentsSheet post={sheet.post} onClose={() => setSheet(null)} onAdded={() => mutate()} /> : null}
       {sheet?.type === 'people' ? <PeopleSheet post={sheet.post} onClose={() => setSheet(null)} /> : null}
       {sheet?.type === 'donate' ? <DonateSheet post={sheet.post} onClose={() => setSheet(null)} onDone={() => patch(sheet.post.id, { donated: true, donations: sheet.post.donations + (sheet.post.donated ? 0 : 1) })} /> : null}
+      {savedToast ? <SavedToast onChoose={() => (setFolderFor(savedToast), setSavedToast(null))} onDone={() => setSavedToast(null)} /> : null}
+      {folderFor ? <SaveFolderSheet targetId={folderFor} onClose={() => setFolderFor(null)} /> : null}
+      {sharedPost ? (
+        <ShareSheet
+          item={{
+            text: `${sharedPost.author.name} en BoostSport: ${sharedPost.body.slice(0, 120)}`,
+            url: `${window.location.origin}/?perfil=${encodeURIComponent(sharedPost.author.key)}&post=${encodeURIComponent(sharedPost.id)}`,
+            title: sharedPost.author.name,
+            subtitle: sharedPost.body,
+            image: sharedPost.image,
+            repost: { active: sharedPost.reposted, onToggle: () => toggle(sharedPost, 'repost', 'reposted', 'reposts') },
+          }}
+          onClose={() => setSharing(null)}
+        />
+      ) : null}
       {sheet?.type === 'menu' ? <MenuSheet post={sheet.post} onClose={() => setSheet(null)} onRemoved={() => (mutate(), globalMutate(['athlete', profileKey]))} /> : null}
     </div>
   )
