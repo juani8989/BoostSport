@@ -7,6 +7,7 @@ import { comments, follows, postAudio, posts, reactions, reports } from '@/lib/d
 import { describeParties, getViewer, requireViewer, userKey, type Party } from '@/lib/viewer'
 import { events, seedAthleteKey, seedDaily, type DailyKind } from '@/lib/catalog'
 import { getSettings, getSettingsMap } from '@/lib/user-settings'
+import { isBlobUrl } from '@/lib/blob-url'
 
 export type ReactionKind = 'like' | 'apoyo' | 'asistir' | 'guardado' | 'repost'
 
@@ -142,12 +143,13 @@ export async function createPost(input: { kind: DailyKind; body: string; image?:
   if (body.length < 2 || body.length > 500) return { ok: false, error: 'Escribí entre 2 y 500 caracteres.' }
 
   const image = input.image ?? null
-  if (image && (!/^data:image\/(jpeg|png|webp);base64,/.test(image) || image.length > MAX_IMAGE_CHARS)) {
+  // Photos go to Vercel Blob; data URLs remain the fallback while Blob isn't set up.
+  if (image && !isBlobUrl(image) && (!/^data:image\/(jpeg|png|webp);base64,/.test(image) || image.length > MAX_IMAGE_CHARS)) {
     return { ok: false, error: 'La imagen no es válida o es muy pesada.' }
   }
 
   const audio = input.audio ?? null
-  if (audio && (!/^data:audio\/(mpeg|mp3|mp4|x-m4a|aac|ogg|webm|wav|x-wav);base64,/.test(audio.data) || audio.data.length > MAX_AUDIO_CHARS)) {
+  if (audio && !isBlobUrl(audio.data) && (!/^data:audio\/(mpeg|mp3|mp4|x-m4a|aac|ogg|webm|wav|x-wav);base64,/.test(audio.data) || audio.data.length > MAX_AUDIO_CHARS)) {
     return { ok: false, error: 'El audio no es válido o pesa más de 2 MB.' }
   }
 

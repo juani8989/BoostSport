@@ -10,7 +10,10 @@ import { swipe } from '@/app/actions/match'
 import { useNav } from '@/components/app/nav'
 import { PartyAvatar, Sheet, compactNumber, timeAgo } from '@/components/app/kit'
 import { AthleteProfileForm } from '@/components/auth/athlete-profile-form'
-import { PressMentions } from '@/components/profile/press-mentions'
+import { AddPressSheet, PressMentions } from '@/components/profile/press-mentions'
+import { CreateMenu } from '@/components/profile/create-menu'
+import { Composer } from '@/components/home/companeros-feed'
+import type { DailyKind } from '@/lib/catalog'
 import { PostViewer } from '@/components/posts/post-viewer'
 import { ZoomableImage } from '@/components/posts/zoomable-image'
 import type { AthleteProfile } from '@/lib/profile-types'
@@ -33,6 +36,8 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
   const [matchNote, setMatchNote] = useState<string | null>(null)
   const [openPost, setOpenPost] = useState<string | null>(initialPost ?? null)
   const [openPhoto, setOpenPhoto] = useState<{ src: string; caption: string } | null>(null)
+  const [addingPress, setAddingPress] = useState(false)
+  const [composing, setComposing] = useState<DailyKind | null>(null)
 
   if (isLoading) {
     return (
@@ -105,6 +110,9 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
   return (
     <div className="flex h-full flex-col overflow-y-auto pb-24">
       <section className="relative flex flex-col items-center gap-3 px-4 pb-5 pt-20 text-center">
+        {data.isMe ? (
+          <CreateMenu onCompose={setComposing} onAddPress={() => setAddingPress(true)} />
+        ) : null}
         <PartyAvatar party={data.party} className="size-24 ring-4" />
         <div className="flex flex-col items-center gap-1">
           <h1 className="flex items-center gap-1.5 font-display text-3xl font-semibold">
@@ -355,6 +363,14 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
         ) : null}
       </div>
 
+      {composing ? (
+        <Composer
+          initialKind={composing}
+          onClose={() => setComposing(null)}
+          onPosted={() => (mutate(), globalMutate('companeros'), globalMutate((key) => Array.isArray(key) && key[0] === 'profile-posts'))}
+        />
+      ) : null}
+      {addingPress ? <AddPressSheet onClose={() => setAddingPress(false)} onAdded={() => (mutate(), mutateExtra(), setSection('menciones'))} /> : null}
       {openPost ? <PostViewer profileKey={data.key} startId={openPost} onClose={() => (setOpenPost(null), mutate())} /> : null}
       {openPhoto ? (
         <div className="absolute inset-0 z-50 bg-background" role="dialog" aria-modal="true" aria-label="Foto">

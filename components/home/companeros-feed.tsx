@@ -15,6 +15,7 @@ import {
 } from '@/app/actions/social'
 import type { DailyKind } from '@/lib/catalog'
 import { useNav } from '@/components/app/nav'
+import { storeMedia } from '@/lib/upload'
 import { PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { useSettings } from '@/components/settings/use-settings'
@@ -275,12 +276,13 @@ function PostMenu({ post, onClose, onDone }: { post: FeedPost; onClose: () => vo
 
 const STEPS = ['Foto', 'Texto', 'Audio'] as const
 
-function Composer({ onClose, onPosted }: { onClose: () => void; onPosted: () => void }) {
+export function Composer({ onClose, onPosted, initialKind = 'diario' }: { onClose: () => void; onPosted: () => void; initialKind?: DailyKind }) {
   const [step, setStep] = useState(0)
-  const [kind, setKind] = useState<DailyKind>('diario')
+  const [kind, setKind] = useState<DailyKind>(initialKind)
   const [body, setBody] = useState('')
   const [image, setImage] = useState<string | null>(null)
   const [audio, setAudio] = useState<{ data: string; name: string } | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -291,27 +293,35 @@ function Composer({ onClose, onPosted }: { onClose: () => void; onPosted: () => 
     e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) return setError('Elegí una imagen.')
+    setUploading(true)
     try {
-      setImage(await compressImage(file))
+      setImage(await storeMedia('post-image', await compressImage(file)))
       setError(null)
     } catch {
-      setError('No pudimos procesar la imagen.')
+      setError('No pudimos subir la imagen. Probá de nuevo.')
+    } finally {
+      setUploading(false)
     }
   }
 
-  function pickAudio(e: React.ChangeEvent<HTMLInputElement>) {
+  async function pickAudio(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('audio/')) return setError('Elegí un archivo de audio (mp3, m4a, ogg o wav).')
-    if (file.size > 2 * 1024 * 1024) return setError('El audio puede pesar hasta 2 MB (más o menos un minuto y medio).')
-    const reader = new FileReader()
-    reader.onload = () => {
-      setAudio({ data: String(reader.result), name: file.name.replace(/\.[^.]+$/, '').slice(0, 80) })
-      setError(null)
+    if (file.size > 10 * 1024 * 1024) return setError('El audio puede pesar hasta 10 MB.')
+    setUploading(true)
+    setError(null)
+    try {
+      const url = await storeMedia('post-audio', file)
+      // Without Blob the audio goes in the database, which only fits small files.
+      if (url.startsWith('data:') && file.size > 2 * 1024 * 1024) return setError('Por ahora el audio puede pesar hasta 2 MB.')
+      setAudio({ data: url, name: file.name.replace(/\.[^.]+$/, '').slice(0, 80) })
+    } catch {
+      setError('No pudimos subir el audio. Probá de nuevo.')
+    } finally {
+      setUploading(false)
     }
-    reader.onerror = () => setError('No pudimos leer el audio.')
-    reader.readAsDataURL(file)
   }
 
   function next() {
@@ -432,6 +442,11 @@ function Composer({ onClose, onPosted }: { onClose: () => void; onPosted: () => 
           </>
         ) : null}
 
+        {uploading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Subiendo…
+          </p>
+        ) : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <div className="flex gap-2">
@@ -441,11 +456,11 @@ function Composer({ onClose, onPosted }: { onClose: () => void; onPosted: () => 
             </button>
           ) : null}
           {step < 2 ? (
-            <button type="button" onClick={next} className="flex-1 rounded-full bg-olympic-blue px-5 py-3 font-bold text-olympic-white">
+            <button type="button" onClick={next} disabled={uploading} className="flex-1 rounded-full disabled:opacity-60 bg-olympic-blue px-5 py-3 font-bold text-olympic-white">
               {step === 0 && !image ? 'Seguir sin foto' : 'Siguiente'}
             </button>
           ) : (
-            <button type="button" onClick={publish} disabled={pending} className="flex-1 rounded-full bg-olympic-blue px-5 py-3 font-bold text-olympic-white disabled:opacity-60">
+            <button type="button" onClick={publish} disabled={pending || uploading} className="flex-1 rounded-full bg-olympic-blue px-5 py-3 font-bold text-olympic-white disabled:opacity-60">
               {pending ? 'Publicando…' : audio ? 'Publicar' : 'Publicar sin audio'}
             </button>
           )}

@@ -1,6 +1,6 @@
 'use server'
 
-import { and, count, desc, eq, inArray } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import { postAudioSrc, postImageSrc } from '@/lib/media'
 import { db } from '@/lib/db'
 import { comments, follows, postAudio, posts, reactions } from '@/lib/db/schema'
@@ -41,8 +41,12 @@ async function audioFor(ids: number[]) {
   if (!ids.length) return new Map<number, { url: string; name: string }>()
   try {
     // Only the names: the bytes are served by /api/media/audio.
-    const rows = await db.select({ postId: postAudio.postId, audioName: postAudio.audioName }).from(postAudio).where(inArray(postAudio.postId, ids))
-    return new Map(rows.map((r) => [r.postId, { url: postAudioSrc(r.postId), name: r.audioName }]))
+    // Blob URLs come as they are; old data URLs stay in the database and are served by /api/media/audio.
+    const rows = await db
+      .select({ postId: postAudio.postId, audioName: postAudio.audioName, url: sql<string | null>`case when left(${postAudio.audioUrl}, 5) = 'data:' then null else ${postAudio.audioUrl} end` })
+      .from(postAudio)
+      .where(inArray(postAudio.postId, ids))
+    return new Map(rows.map((r) => [r.postId, { url: r.url ?? postAudioSrc(r.postId), name: r.audioName }]))
   } catch {
     return new Map<number, { url: string; name: string }>()
   }
