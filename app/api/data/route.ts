@@ -10,6 +10,10 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : ''
     if (message === 'Unauthorized' || message === 'Forbidden') return Response.json({ error: message }, { status: message === 'Unauthorized' ? 401 : 403 })
     console.error('data route failed', body.fn, error)
-    return Response.json({ error: 'Error' }, { status: 500 })
+    // Postgres error codes say what broke (missing table, column…) without exposing data.
+    const pg = (error as { code?: string; cause?: { code?: string; message?: string } } | null) ?? {}
+    const code = pg.code ?? pg.cause?.code
+    const schemaProblem = code === '42P01' || code === '42703' ? pg.cause?.message ?? message : undefined
+    return Response.json({ error: 'Error', code, detail: schemaProblem }, { status: 500 })
   }
 }
