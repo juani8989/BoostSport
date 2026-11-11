@@ -378,8 +378,8 @@ export function Tutorial({ role, name, onDone, onOpenSettings }: { role: Role; n
           ))}
         </div>
         {last ? null : (
-          <button type="button" onClick={onDone} className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-secondary">
-            Saltar
+          <button type="button" onClick={onDone} className="shrink-0 rounded-full border border-border px-3 py-1.5 text-sm font-semibold hover:bg-secondary">
+            Omitir introducción
           </button>
         )}
       </header>
@@ -414,9 +414,18 @@ export function Tutorial({ role, name, onDone, onOpenSettings }: { role: Role; n
               Abrir Configuración
             </button>
           </div>
+        ) : index === 0 ? (
+          <div className="flex flex-1 flex-col gap-2 md:max-w-sm">
+            <button type="button" onClick={() => go(1)} className="flex items-center justify-center gap-2 rounded-full bg-olympic-blue px-6 py-3.5 font-bold text-olympic-white">
+              Empecemos <ArrowRight className="size-5" />
+            </button>
+            <button type="button" onClick={onDone} className="rounded-full px-6 py-3 text-sm font-bold text-muted-foreground hover:bg-secondary">
+              Omitir introducción
+            </button>
+          </div>
         ) : (
           <button type="button" onClick={() => go(1)} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-olympic-blue px-6 py-3.5 font-bold text-olympic-white md:max-w-sm">
-            {index === 0 ? 'Empecemos' : 'Siguiente'} <ArrowRight className="size-5" />
+            Siguiente <ArrowRight className="size-5" />
           </button>
         )}
       </footer>
