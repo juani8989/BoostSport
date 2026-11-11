@@ -45,6 +45,8 @@ export type Settings = {
   restricted: string[]
   archived: string[]
   notifications: {
+    /** When the person last opened the notifications; anything newer is unread. */
+    lastReadAt: string
     pauseAll: boolean
     quietHours: { enabled: boolean; from: string; to: string }
     push: Record<NotificationKey, boolean>
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   restricted: [],
   archived: [],
   notifications: {
+    lastReadAt: '',
     pauseAll: false,
     quietHours: { enabled: false, from: '23:00', to: '07:00' },
     push: allOn(true),

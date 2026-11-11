@@ -26,37 +26,13 @@ type Store = {
   unlockSecret: (athleteId: string) => void
   matchedAthletes: Set<string>
   sendProposal: (athleteId: string, deal: DealType, message: string) => void
-  notifications: AppNotification[]
+  /** Shows a short banner at the top. The notification list itself comes from the database. */
   pushNotification: (n: Omit<AppNotification, 'id' | 'time'>) => void
   banner: AppNotification | null
   dismissBanner: () => void
-  unreadCount: number
-  markAllRead: () => void
 }
 
 const StoreContext = createContext<Store | null>(null)
-
-const initialNotifications: AppNotification[] = [
-  {
-    id: 'n1',
-    title: 'Nueva convocatoria para ti',
-    body: 'Andes Sport busca corredora sub-23 en Córdoba. 92 % de afinidad. Cierra en 48 h.',
-    time: 'hace 5 min',
-    highlight: true,
-  },
-  {
-    id: 'n2',
-    title: 'Te están mirando',
-    body: 'Una marca deportiva vio tu Vitrina 3 veces hoy.',
-    time: 'hace 1 h',
-  },
-  {
-    id: 'n3',
-    title: 'Logro guardado',
-    body: '2 empresas guardaron tu progresión de 400 m.',
-    time: 'hace 3 h',
-  },
-]
 
 export function AppStoreProvider({
   children,
@@ -70,9 +46,7 @@ export function AppStoreProvider({
   const [toggled, setToggled] = useState<Set<string>>(new Set())
   const [unlockedSecrets, setUnlockedSecrets] = useState<Set<string>>(new Set())
   const [matchedAthletes, setMatchedAthletes] = useState<Set<string>>(new Set())
-  const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications)
   const [banner, setBanner] = useState<AppNotification | null>(null)
-  const [unreadCount, setUnreadCount] = useState(initialNotifications.length)
 
   const toggle = useCallback((key: string) => {
     setToggled((prev) => {
@@ -93,8 +67,6 @@ export function AppStoreProvider({
       id: `n-${Date.now()}`,
       time: 'ahora',
     }
-    setNotifications((prev) => [notification, ...prev])
-    setUnreadCount((c) => c + 1)
     setBanner(notification)
   }, [])
 
@@ -124,12 +96,9 @@ export function AppStoreProvider({
       unlockSecret,
       matchedAthletes,
       sendProposal,
-      notifications,
       pushNotification,
       banner,
       dismissBanner: () => setBanner(null),
-      unreadCount,
-      markAllRead: () => setUnreadCount(0),
     }),
     [
       mode,
@@ -140,10 +109,8 @@ export function AppStoreProvider({
       unlockSecret,
       matchedAthletes,
       sendProposal,
-      notifications,
       pushNotification,
       banner,
-      unreadCount,
     ],
   )
 

@@ -9,7 +9,8 @@ export type Nav = {
   role: Role | 'invitado'
   account?: Account
   goTo: (tab: MainTab) => void
-  openProfile: (key: string) => void
+  /** Opens a profile; with postId, opens that post in the viewer. */
+  openProfile: (key: string, postId?: string) => void
   openChat: (matchId: number) => void
   requireAccount: () => boolean
 }
