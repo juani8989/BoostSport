@@ -32,6 +32,7 @@ import { ZoomableImage } from '@/components/posts/zoomable-image'
 import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
 import { ShareSheet } from '@/components/share/share-sheet'
 import { useCheer } from '@/components/app/cheer'
+import { useHeartBursts, useTapGestures } from '@/components/posts/tap-gestures'
 import { cn } from '@/lib/utils'
 import { load } from '@/lib/load'
 
@@ -149,6 +150,7 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
             onOpen={(type) => (type === 'comments' || type === 'people' || nav.requireAccount() ? setSheet({ type, post }) : null)}
             onOpenProfile={() => (onClose(), nav.openProfile(post.author.key))}
             cheer={cheerFor === post.id ? cheer : null}
+            onCheer={() => (setCheerFor(post.id), fireCheer())}
           />
         ))}
       </div>
@@ -188,8 +190,10 @@ function Slide({
   onOpen,
   onOpenProfile,
   cheer,
+  onCheer,
 }: {
   cheer: React.ReactNode
+  onCheer: () => void
   post: ViewerPost
   eager: boolean
   muted: boolean
@@ -244,6 +248,18 @@ function Slide({
     }
   }, [active, muted])
 
+  const [hearts, popHeart] = useHeartBursts()
+  const gestures = useTapGestures({
+    onDoubleTap: (x, y) => {
+      popHeart(x, y)
+      if (!post.liked) onToggle(post, 'like', 'liked', 'likes')
+    },
+    onHold: () => {
+      if (!post.supported) onToggle(post, 'apoyo', 'supported', 'apoyos')
+      else onCheer()
+    },
+  })
+
   const words = post.body.trim().split(/\s+/)
   const long = words.length > CAPTION_WORDS
   const caption = long && !expanded ? `${words.slice(0, CAPTION_WORDS).join(' ')}…` : post.body
@@ -285,8 +301,10 @@ function Slide({
         </button>
       </div>
 
-      {/* The photo is shown whole inside its frame; zoom only when the person asks for it. */}
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black">
+      {/* The photo is shown whole inside its frame; zoom only when the person asks for it.
+          Double tap likes; double tap holding the second tap supports. */}
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black" {...gestures}>
+        {hearts}
         {post.image ? (
           <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={eager} />
         ) : (
