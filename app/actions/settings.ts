@@ -7,7 +7,7 @@ import { comments, follows, matches, messages, posts, profiles, reactions, sessi
 import { describeParties, requireViewer, type Party } from '@/lib/viewer'
 import { events, seedAthleteKey, seedDaily } from '@/lib/catalog'
 import { DEFAULT_SETTINGS, mergeSettings, type Settings } from '@/lib/settings'
-import { getSettings, saveSettings } from '@/lib/user-settings'
+import { SettingsUnavailableError, getSettings, saveSettings } from '@/lib/user-settings'
 import { completenessOf, profileChecklist } from '@/lib/profile-checklist'
 import { purgeUser } from '@/lib/purge-user'
 import { getSession } from '@/lib/session'
@@ -62,7 +62,12 @@ export async function updateMySettings(patch: DeepPartial<Settings>): Promise<Re
   next.interactions.hiddenWords = [...new Set(next.interactions.hiddenWords.map((w) => w.trim().toLowerCase()).filter((w) => w.length > 0 && w.length <= 40))].slice(0, 100)
   next.feed.interests = [...new Set(next.feed.interests)].slice(0, 30)
   next.app.timeLimitMinutes = Math.max(0, Math.min(600, Math.round(next.app.timeLimitMinutes)))
-  await saveSettings(viewer.id, next)
+  try {
+    await saveSettings(viewer.id, next)
+  } catch (error) {
+    if (error instanceof SettingsUnavailableError) return { ok: false, error: error.message }
+    throw error
+  }
   return { ok: true, settings: next }
 }
 
