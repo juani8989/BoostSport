@@ -135,8 +135,8 @@ export function CompanerosFeed() {
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/50 to-background/20" />
 
           {/* The text layer lets touches through to the photo (for zoom) except on its own controls. */}
-          <div className="pointer-events-none relative flex h-full items-end gap-3 px-4 pb-24 pt-36">
-            <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-3">
+          <div className="pointer-events-none relative flex h-full items-end gap-3 px-4 pb-24 pt-36 md:px-8 md:pb-24">
+            <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-3 md:max-w-md">
               {post.boostedBy || post.supported ? (
                 <p className="flex items-center gap-1.5 self-start rounded-full bg-olympic-yellow/90 px-2.5 py-1 text-[11px] font-bold text-olympic-black">
                   <HandHeart className="size-3.5" />
@@ -158,7 +158,7 @@ export function CompanerosFeed() {
               <p className={cn('text-pretty leading-relaxed', post.image ? 'text-sm' : 'font-display text-2xl font-semibold leading-snug')}>{post.body}</p>
             </div>
 
-            <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-4">
+            <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-4 md:absolute md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:flex-row md:gap-1 md:rounded-full md:bg-background/80 md:px-3 md:py-1.5 md:shadow-xl">
               <RailButton label="Me gusta" count={hideCounts && !post.mine ? undefined : post.likes} active={post.liked} activeClass="text-olympic-red" onClick={() => react(post, 'like')}>
                 <Heart className={cn('size-6', post.liked && 'fill-current')} />
               </RailButton>
@@ -236,8 +236,9 @@ function RailButton({
   children: React.ReactNode
 }) {
   return (
-    <button type="button" onClick={onClick} aria-label={label} aria-pressed={active} className={cn('flex flex-col items-center gap-1 text-xs font-semibold', active && activeClass)}>
-      <span className="flex size-11 items-center justify-center rounded-full bg-background/50 backdrop-blur">{children}</span>
+    <button type="button" onClick={onClick} aria-label={label} aria-pressed={active} className={cn('flex flex-col items-center gap-1 text-xs font-semibold md:flex-row md:gap-0.5 md:pr-2', active && activeClass)}>
+      {/* On computers the actions sit in a bar at the bottom, so each count goes next to its icon. */}
+      <span className="flex size-11 items-center justify-center rounded-full bg-background/50 backdrop-blur md:bg-transparent md:backdrop-blur-none">{children}</span>
       {count !== undefined ? <span className="text-foreground">{compactNumber(count)}</span> : null}
     </button>
   )
