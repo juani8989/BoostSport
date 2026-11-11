@@ -276,9 +276,9 @@ function PostMenu({ post, onClose, onDone }: { post: FeedPost; onClose: () => vo
 
 const STEPS = ['Foto', 'Texto', 'Audio'] as const
 
-export function Composer({ onClose, onPosted }: { onClose: () => void; onPosted: () => void }) {
+export function Composer({ onClose, onPosted, initialKind = 'diario' }: { onClose: () => void; onPosted: () => void; initialKind?: DailyKind }) {
   const [step, setStep] = useState(0)
-  const [kind, setKind] = useState<DailyKind>('diario')
+  const [kind, setKind] = useState<DailyKind>(initialKind)
   const [body, setBody] = useState('')
   const [image, setImage] = useState<string | null>(null)
   const [audio, setAudio] = useState<{ data: string; name: string } | null>(null)

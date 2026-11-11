@@ -163,7 +163,7 @@ export function PressMentions({ press, news, isMe, onChanged }: { press: PressLi
   )
 }
 
-function AddPressSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+export function AddPressSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const [url, setUrl] = useState('')
   const [link, setLink] = useState<PressLink | null>(null)
   const [pending, setPending] = useState(false)
