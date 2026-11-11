@@ -58,7 +58,7 @@ export function ImageInput({ label, value, onChange, round }: { label: string; v
   )
 }
 
-export function OrgProfileForm({ initial, pending, error, onSubmit }: { initial: OrgProfile; pending: boolean; error: string | null; onSubmit: (p: OrgProfile) => void }) {
+export function OrgProfileForm({ initial, pending, error, onSubmit, formId, hideSubmit }: { initial: OrgProfile; pending: boolean; error: string | null; onSubmit: (p: OrgProfile) => void; formId?: string; hideSubmit?: boolean }) {
   const [p, setP] = useState(initial)
   const isEvent = p.kind === 'evento'
   const info = p.eventInfo ?? { distance: '', place: '', requirements: '', signup: '', reach: '' }
@@ -73,6 +73,7 @@ export function OrgProfileForm({ initial, pending, error, onSubmit }: { initial:
 
   return (
     <form
+      id={formId}
       onSubmit={(e) => {
         e.preventDefault()
         onSubmit(p)
@@ -131,9 +132,11 @@ export function OrgProfileForm({ initial, pending, error, onSubmit }: { initial:
       </datalist>
 
       <FormError message={error} />
-      <button type="submit" disabled={pending} className={cn('rounded-full px-5 py-3 font-bold disabled:opacity-60', isEvent ? 'bg-olympic-green text-olympic-white' : 'bg-olympic-yellow text-olympic-black')}>
-        {pending ? 'Guardando…' : 'Guardar cambios'}
-      </button>
+      {hideSubmit ? null : (
+        <button type="submit" disabled={pending} className={cn('rounded-full px-5 py-3 font-bold disabled:opacity-60', isEvent ? 'bg-olympic-green text-olympic-white' : 'bg-olympic-yellow text-olympic-black')}>
+          {pending ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+      )}
     </form>
   )
 }

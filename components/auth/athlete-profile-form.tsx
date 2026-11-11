@@ -15,6 +15,8 @@ export function AthleteProfileForm({
   onSubmit,
   submitLabel = 'Crear mi perfil',
   pendingLabel = 'Creando perfil…',
+  formId,
+  hideSubmit,
 }: {
   initial: AthleteProfile
   pending: boolean
@@ -22,6 +24,9 @@ export function AthleteProfileForm({
   onSubmit: (profile: AthleteProfile) => void
   submitLabel?: string
   pendingLabel?: string
+  /** Lets a button outside the form (in the screen's header) submit it. */
+  formId?: string
+  hideSubmit?: boolean
 }) {
   const [p, setP] = useState(initial)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -45,7 +50,7 @@ export function AthleteProfileForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+    <form id={formId} onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
       {p.famous ? (
         <div className="flex gap-4 rounded-xl border border-olympic-blue bg-olympic-blue/15 p-4">
           {p.photo ? (
@@ -174,9 +179,11 @@ export function AthleteProfileForm({
       </datalist>
 
       <FormError message={error} />
-      <button type="submit" disabled={pending} className="rounded-full bg-olympic-blue px-5 py-3 font-bold text-olympic-white disabled:opacity-60">
-        {pending ? pendingLabel : submitLabel}
-      </button>
+      {hideSubmit ? null : (
+        <button type="submit" disabled={pending} className="rounded-full bg-olympic-blue px-5 py-3 font-bold text-olympic-white disabled:opacity-60">
+          {pending ? pendingLabel : submitLabel}
+        </button>
+      )}
     </form>
   )
 }

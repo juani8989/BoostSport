@@ -25,7 +25,7 @@ export function PartyAvatar({ party, className }: { party: Pick<Party, 'name' | 
 }
 
 /** A screen of its own over the app: back arrow, title and scrollable content. */
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode; tall?: boolean }) {
+export function Sheet({ title, onClose, children, action }: { title: string; onClose: () => void; children: React.ReactNode; tall?: boolean; action?: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -44,6 +44,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
           <ArrowLeft className="size-5" />
         </button>
         <h2 className="min-w-0 flex-1 truncate font-display text-lg font-semibold">{title}</h2>
+        {action ? <div className="shrink-0 pr-2">{action}</div> : null}
       </header>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4 pb-8">{children}</div>
     </section>
