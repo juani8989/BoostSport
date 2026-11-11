@@ -12,6 +12,7 @@ import { PartyAvatar, Sheet, compactNumber, timeAgo } from '@/components/app/kit
 import { AthleteProfileForm } from '@/components/auth/athlete-profile-form'
 import { AddPressSheet, PressMentions } from '@/components/profile/press-mentions'
 import { CreateMenu } from '@/components/profile/create-menu'
+import { useCheer } from '@/components/app/cheer'
 import { Composer } from '@/components/home/companeros-feed'
 import type { DailyKind } from '@/lib/catalog'
 import { PostViewer } from '@/components/posts/post-viewer'
@@ -38,6 +39,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
   const [openPhoto, setOpenPhoto] = useState<{ src: string; caption: string } | null>(null)
   const [addingPress, setAddingPress] = useState(false)
   const [composing, setComposing] = useState<DailyKind | null>(null)
+  const [cheer, fireCheer] = useCheer()
 
   if (isLoading) {
     return (
@@ -60,6 +62,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
 
   async function support() {
     if (!nav.requireAccount() || !data) return
+    if (!data.supported) fireCheer()
     mutate({ ...data, supported: !data.supported, stats: { ...data.stats, apoyos: data.stats.apoyos + (data.supported ? -1 : 1) } }, { revalidate: false })
     await toggleReaction(`athlete:${data.key}`, 'apoyo')
     mutate()
@@ -110,6 +113,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
   return (
     <div className="flex h-full flex-col overflow-y-auto pb-24">
       <section className="relative flex flex-col items-center gap-3 px-4 pb-5 pt-20 text-center">
+        {cheer}
         {data.isMe ? (
           <>
             <CreateMenu onCompose={setComposing} onAddPress={() => setAddingPress(true)} />

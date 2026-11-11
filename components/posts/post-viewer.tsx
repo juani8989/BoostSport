@@ -31,6 +31,7 @@ import { useSettings } from '@/components/settings/use-settings'
 import { ZoomableImage } from '@/components/posts/zoomable-image'
 import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
 import { ShareSheet } from '@/components/share/share-sheet'
+import { useCheer } from '@/components/app/cheer'
 import { cn } from '@/lib/utils'
 import { load } from '@/lib/load'
 
@@ -61,6 +62,8 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
   const [savedToast, setSavedToast] = useState<string | null>(null)
   const [folderFor, setFolderFor] = useState<string | null>(null)
   const [sharing, setSharing] = useState<string | null>(null)
+  const [cheer, fireCheer] = useCheer()
+  const [cheerFor, setCheerFor] = useState<string | null>(null)
   const sharedPost = data?.find((p) => p.id === sharing)
 
   useEffect(() => {
@@ -83,6 +86,10 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
   async function toggle(post: ViewerPost, kind: 'like' | 'apoyo' | 'repost' | 'guardado', flag: ToggleFlag, counter?: Counter) {
     if (!nav.requireAccount()) return
     const on = !post[flag]
+    if (kind === 'apoyo' && on) {
+      setCheerFor(post.id)
+      fireCheer()
+    }
     patch(post.id, { [flag]: on, ...(counter ? { [counter]: post[counter] + (on ? 1 : -1) } : {}) } as Partial<ViewerPost>)
     if (kind === 'guardado') setSavedToast(on ? post.id : null)
     await toggleReaction(post.id, kind)
@@ -141,6 +148,7 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
             onShare={() => share(post)}
             onOpen={(type) => (type === 'comments' || type === 'people' || nav.requireAccount() ? setSheet({ type, post }) : null)}
             onOpenProfile={() => (onClose(), nav.openProfile(post.author.key))}
+            cheer={cheerFor === post.id ? cheer : null}
           />
         ))}
       </div>
@@ -158,7 +166,7 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
             title: sharedPost.author.name,
             subtitle: sharedPost.body,
             image: sharedPost.image,
-            repost: { active: sharedPost.reposted, onToggle: () => toggle(sharedPost, 'repost', 'reposted', 'reposts') },
+            repost: { active: sharedPost.supported, onToggle: () => toggle(sharedPost, 'apoyo', 'supported', 'apoyos') },
           }}
           onClose={() => setSharing(null)}
         />
@@ -179,7 +187,9 @@ function Slide({
   onShare,
   onOpen,
   onOpenProfile,
+  cheer,
 }: {
+  cheer: React.ReactNode
   post: ViewerPost
   eager: boolean
   muted: boolean
@@ -240,7 +250,8 @@ function Slide({
   const kind = kindMeta[post.kind]
 
   return (
-    <article ref={ref} id={`viewer-${post.id}`} className="flex h-full w-full shrink-0 snap-start snap-always flex-col gap-3 px-4 pb-6 pt-16">
+    <article ref={ref} id={`viewer-${post.id}`} className="relative flex h-full w-full shrink-0 snap-start snap-always flex-col gap-3 px-4 pb-6 pt-16">
+      {cheer}
       {post.audio ? <audio ref={audioRef} src={post.audio.url} loop preload="none" /> : null}
 
       <div className="flex items-center gap-2">
@@ -269,8 +280,8 @@ function Slide({
             {post.following ? 'Siguiendo' : 'Seguir'}
           </button>
         ) : null}
-        <button type="button" onClick={() => onOpen('menu')} aria-label="Más opciones" className="ml-auto flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-secondary">
-          <MoreHorizontal className="size-5" />
+        <button type="button" onClick={() => onOpen('menu')} aria-label={post.mine ? 'Opciones de tu publicación' : 'Reportar'} className="ml-auto flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-secondary">
+          {post.mine ? <MoreHorizontal className="size-5" /> : <Flag className="size-5 fill-olympic-red text-olympic-red" />}
         </button>
       </div>
 
@@ -294,9 +305,6 @@ function Slide({
         </Action>
         <Action label="Comentarios" count={post.comments} onClick={() => onOpen('comments')} onCount={() => onOpen('comments')}>
           <MessageCircle className="size-6" />
-        </Action>
-        <Action label={post.reposted ? 'Quitar recompartido' : 'Recompartir'} count={post.reposts} active={post.reposted} activeClass="text-olympic-green" onClick={() => onToggle(post, 'repost', 'reposted', 'reposts')} onCount={() => onOpen('people')}>
-          <Repeat2 className="size-6" />
         </Action>
         <Action label="Compartir" onClick={onShare}>
           <Share2 className="size-6" />

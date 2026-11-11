@@ -18,6 +18,7 @@ import { useNav } from '@/components/app/nav'
 import { storeMedia } from '@/lib/upload'
 import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
 import { ShareSheet } from '@/components/share/share-sheet'
+import { useCheer } from '@/components/app/cheer'
 import { PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { useSettings } from '@/components/settings/use-settings'
@@ -37,6 +38,8 @@ export function CompanerosFeed() {
   const [menuFor, setMenuFor] = useState<FeedPost | null>(null)
   const [composing, setComposing] = useState(false)
   const [savedToast, setSavedToast] = useState<string | null>(null)
+  const [cheer, fireCheer] = useCheer()
+  const [cheerFor, setCheerFor] = useState<string | null>(null)
   const [sharing, setSharing] = useState<FeedPost | null>(null)
   const [folderFor, setFolderFor] = useState<string | null>(null)
   const { settings } = useSettings(nav.role !== 'invitado')
@@ -46,6 +49,10 @@ export function CompanerosFeed() {
     if (!nav.requireAccount()) return
     const flag = kind === 'like' ? 'liked' : 'supported'
     const total = kind === 'like' ? 'likes' : 'apoyos'
+    if (kind === 'apoyo' && !post.supported) {
+      setCheerFor(post.id)
+      fireCheer()
+    }
     mutate(
       (prev) => prev?.map((p) => (p.id === post.id ? { ...p, [flag]: !p[flag], [total]: p[total] + (p[flag] ? -1 : 1) } : p)),
       { revalidate: false },
@@ -78,6 +85,7 @@ export function CompanerosFeed() {
     <>
       {data.map((post, index) => (
         <article key={post.id} className="relative h-full w-full shrink-0 snap-start snap-always overflow-hidden">
+          {cheerFor === post.id ? cheer : null}
           {post.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={post.image} alt="" loading={index > 1 ? 'lazy' : 'eager'} className="absolute inset-0 size-full object-cover" />
@@ -88,6 +96,12 @@ export function CompanerosFeed() {
 
           <div className="relative flex h-full items-end gap-3 px-4 pb-24 pt-36">
             <div className="flex min-w-0 flex-1 flex-col gap-3">
+              {post.boostedBy || post.supported ? (
+                <p className="flex items-center gap-1.5 self-start rounded-full bg-olympic-yellow/90 px-2.5 py-1 text-[11px] font-bold text-olympic-black">
+                  <HandHeart className="size-3.5" />
+                  {post.supported && (!post.boostedBy || post.boostedBy.key === `user:${nav.account?.id}`) ? 'Lo apoyaste' : `Apoyado por ${post.boostedBy!.name}${post.boostedBy!.others > 0 ? ` y ${post.boostedBy!.others} más` : ''}`}
+                </p>
+              ) : null}
               <button type="button" onClick={() => nav.openProfile(post.author.key)} className="flex items-center gap-2 self-start text-left">
                 <PartyAvatar party={post.author} className="size-9" />
                 <span className="flex min-w-0 flex-col leading-tight">
@@ -119,9 +133,15 @@ export function CompanerosFeed() {
               <RailButton label="Compartir" onClick={() => share(post)}>
                 <Share2 className="size-6" />
               </RailButton>
-              <RailButton label="Más opciones" onClick={() => (nav.requireAccount() ? setMenuFor(post) : null)}>
-                <MoreHorizontal className="size-6" />
-              </RailButton>
+              {post.mine ? (
+                <RailButton label="Opciones de tu publicación" onClick={() => setMenuFor(post)}>
+                  <MoreHorizontal className="size-6" />
+                </RailButton>
+              ) : (
+                <RailButton label="Reportar" onClick={() => (nav.requireAccount() ? setMenuFor(post) : null)}>
+                  <Flag className="size-6 fill-olympic-red text-olympic-red" />
+                </RailButton>
+              )}
             </div>
           </div>
         </article>

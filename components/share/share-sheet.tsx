@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { Check, Copy, Link2, Loader2, Mail, MessageCircle, Repeat2, Search, Send, Share2 } from 'lucide-react'
+import { Check, Copy, HandHeart, Link2, Loader2, Mail, MessageCircle, Search, Send, Share2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { sendMessage } from '@/app/actions/match'
 import { PartyAvatar, Sheet } from '@/components/app/kit'
@@ -82,8 +82,8 @@ export function ShareSheet({ item, onClose }: { item: ShareItem; onClose: () => 
           aria-pressed={item.repost.active}
           className={cn('mb-5 flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold', item.repost.active ? 'bg-olympic-green/15 text-olympic-green' : 'bg-secondary')}
         >
-          <Repeat2 className="size-5" />
-          <span className="flex-1">{item.repost.active ? 'Recompartido en BoostSport' : 'Recompartir en BoostSport'}</span>
+          <HandHeart className="size-5" />
+          <span className="flex-1">{item.repost.active ? 'Lo apoyaste: ya lo ve más gente' : 'Apoyar y recompartir en BoostSport'}</span>
           {item.repost.active ? <Check className="size-4" /> : null}
         </button>
       ) : null}
