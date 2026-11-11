@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import type { Party } from '@/lib/viewer'
 import { cn } from '@/lib/utils'
 
@@ -24,13 +24,39 @@ export function PartyAvatar({ party, className }: { party: Pick<Party, 'name' | 
   )
 }
 
-/** A screen of its own over the app: back arrow, title and scrollable content. */
-export function Sheet({ title, onClose, children, action }: { title: string; onClose: () => void; children: React.ReactNode; tall?: boolean; action?: React.ReactNode }) {
+/**
+ * A screen of its own over the app (back arrow, title, scrollable content), or with
+ * `modal`, a sheet that slides up over a dimmed background for quick actions.
+ */
+export function Sheet({ title, onClose, children, action, modal }: { title: string; onClose: () => void; children: React.ReactNode; tall?: boolean; action?: React.ReactNode; modal?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  if (modal) {
+    return (
+      <div className="absolute inset-0 z-50 flex flex-col justify-end md:items-center md:justify-center md:p-6">
+        <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-black/50 animate-in fade-in duration-200 motion-reduce:animate-none" />
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          className="relative flex max-h-[88%] w-full flex-col rounded-t-3xl border-t border-border bg-card text-card-foreground shadow-2xl animate-in slide-in-from-bottom-8 duration-200 motion-reduce:animate-none md:max-w-md md:rounded-3xl md:border"
+        >
+          <span aria-hidden className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-muted-foreground/40 md:hidden" />
+          <header className="flex items-center justify-between gap-2 px-5 pb-3 pt-3">
+            <h2 className="font-display text-lg font-semibold">{title}</h2>
+            <button type="button" onClick={onClose} aria-label="Cerrar" className="flex size-9 items-center justify-center rounded-full bg-secondary">
+              <X className="size-4" />
+            </button>
+          </header>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-6">{children}</div>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <section

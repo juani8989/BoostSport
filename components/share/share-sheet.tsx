@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { Check, Copy, HandHeart, Link2, Loader2, Mail, MessageCircle, Search, Send, Share2 } from 'lucide-react'
+import { Check, Copy, HandHeart, Link2, Loader2, Mail, MessageCircle, Send } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { sendMessage } from '@/app/actions/match'
 import { PartyAvatar, Sheet } from '@/components/app/kit'
@@ -31,19 +31,19 @@ const nets: { label: string; icon: LucideIcon | string; className: string; href:
   { label: 'Mail', icon: Mail, className: 'bg-secondary text-foreground', href: (t, u) => `mailto:?subject=${encodeURIComponent('Mirá esto en BoostSport')}&body=${encodeURIComponent(`${t}\n\n${u}`)}` },
 ]
 
-/** Everything you can do to share a post or a profile, inside and outside BoostSport. */
+/** A small sheet to share a post or a profile: chats and apps scroll sideways. */
 export function ShareSheet({ item, onClose }: { item: ShareItem; onClose: () => void }) {
   const nav = useNav()
   const signedIn = nav.role !== 'invitado'
-  const { data: chats, isLoading } = useSWR(signedIn ? 'matches' : null, () => load('getMatches'))
-  const [query, setQuery] = useState('')
+  const { data: chats } = useSWR(signedIn ? 'matches' : null, () => load('getMatches'))
   const [sent, setSent] = useState<Set<number>>(new Set())
   const [sending, setSending] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const visibleChats = (chats ?? []).filter((c) => c.other.name.toLowerCase().includes(query.toLowerCase()))
+  const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator
 
   async function send(matchId: number) {
+    if (sent.has(matchId)) return
     setSending(matchId)
     setError(null)
     const res = await sendMessage(matchId, `${item.text}\n${item.url}`)
@@ -58,92 +58,69 @@ export function ShareSheet({ item, onClose }: { item: ShareItem; onClose: () => 
     setTimeout(() => setCopied(false), 2000)
   }
 
-  return (
-    <Sheet title="Compartir" onClose={onClose}>
-      <div className="mb-5 flex items-center gap-3 rounded-2xl bg-secondary p-3">
-        {item.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image} alt="" className="size-16 shrink-0 rounded-xl object-cover" />
-        ) : (
-          <span className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-background">
-            <Share2 className="size-6 text-muted-foreground" />
-          </span>
-        )}
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-semibold">{item.title}</span>
-          {item.subtitle ? <span className="line-clamp-2 text-xs text-muted-foreground">{item.subtitle}</span> : null}
-        </span>
-      </div>
+  const tile = 'flex w-16 shrink-0 snap-start flex-col items-center gap-1.5 text-[11px] font-semibold'
+  const circle = 'flex size-12 items-center justify-center rounded-full'
+  const row = 'flex snap-x gap-2 overflow-x-auto pb-1 no-scrollbar'
 
-      {item.repost && signedIn ? (
-        <button
-          type="button"
-          onClick={item.repost.onToggle}
-          aria-pressed={item.repost.active}
-          className={cn('mb-5 flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold', item.repost.active ? 'bg-olympic-green/15 text-olympic-green' : 'bg-secondary')}
-        >
-          <HandHeart className="size-5" />
-          <span className="flex-1">{item.repost.active ? 'Lo apoyaste: ya lo ve más gente' : 'Apoyar y recompartir en BoostSport'}</span>
-          {item.repost.active ? <Check className="size-4" /> : null}
-        </button>
+  return (
+    <Sheet title="Compartir" onClose={onClose} modal>
+      <p className="-mt-1 mb-3 line-clamp-1 text-xs text-muted-foreground">
+        {item.title}
+        {item.subtitle ? ` · ${item.subtitle}` : ''}
+      </p>
+
+      {signedIn && chats?.length ? (
+        <>
+          <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Enviar a</h3>
+          <div className={cn(row, 'mb-4')}>
+            {chats.map((c) => (
+              <button key={c.id} type="button" onClick={() => send(c.id)} disabled={sending === c.id} aria-label={`Enviar a ${c.other.name}`} className={tile}>
+                <span className="relative">
+                  <PartyAvatar party={c.other} className="size-12" />
+                  {sending === c.id || sent.has(c.id) ? (
+                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-olympic-black/55 text-olympic-white">
+                      {sending === c.id ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-5" />}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="w-full truncate text-center">{sent.has(c.id) ? 'Enviado' : c.other.name.split(' ')[0]}</span>
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
 
-      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Fuera de BoostSport</h3>
-      <div className="mb-6 grid grid-cols-4 gap-3">
-        <button type="button" onClick={copy} className="flex flex-col items-center gap-1.5 text-xs font-semibold">
-          <span className="flex size-12 items-center justify-center rounded-full bg-secondary">{copied ? <Check className="size-5 text-olympic-green" /> : <Link2 className="size-5" />}</span>
-          {copied ? '¡Copiado!' : 'Copiar link'}
+      <div className={row}>
+        {item.repost && signedIn ? (
+          <button type="button" onClick={item.repost.onToggle} aria-pressed={item.repost.active} className={tile}>
+            <span className={cn(circle, item.repost.active ? 'bg-olympic-yellow text-olympic-black' : 'bg-secondary')}>
+              <HandHeart className="size-5" />
+            </span>
+            {item.repost.active ? 'Apoyado' : 'Apoyar'}
+          </button>
+        ) : null}
+        <button type="button" onClick={copy} className={tile}>
+          <span className={cn(circle, 'bg-secondary')}>{copied ? <Check className="size-5 text-olympic-green" /> : <Link2 className="size-5" />}</span>
+          {copied ? '¡Copiado!' : 'Copiar'}
         </button>
         {nets.map((n) => (
-          <a key={n.label} href={n.href(item.text, item.url)} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1.5 text-xs font-semibold">
-            <span className={cn('flex size-12 items-center justify-center rounded-full', n.className)}>
+          <a key={n.label} href={n.href(item.text, item.url)} target="_blank" rel="noopener noreferrer" className={tile}>
+            <span className={cn(circle, n.className)}>
               {typeof n.icon === 'string' ? <span className="font-display text-lg font-bold leading-none">{n.icon}</span> : <n.icon className="size-5" />}
             </span>
             {n.label}
           </a>
         ))}
-        {typeof navigator !== 'undefined' && 'share' in navigator ? (
-          <button type="button" onClick={() => navigator.share({ title: 'BoostSport', text: item.text, url: item.url }).catch(() => {})} className="flex flex-col items-center gap-1.5 text-xs font-semibold">
-            <span className="flex size-12 items-center justify-center rounded-full bg-secondary">
+        {canNativeShare ? (
+          <button type="button" onClick={() => navigator.share({ title: 'BoostSport', text: item.text, url: item.url }).catch(() => {})} className={tile}>
+            <span className={cn(circle, 'bg-secondary')}>
               <Copy className="size-5" />
             </span>
-            Más opciones
+            Más
           </button>
         ) : null}
       </div>
-
-      {signedIn ? (
-        <>
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Enviar por mensaje</h3>
-          <label className="mb-2 flex items-center gap-2 rounded-xl bg-secondary px-3 py-2.5">
-            <Search className="size-4 text-muted-foreground" />
-            <span className="sr-only">Buscar un chat</span>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar un chat" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
-          </label>
-          {isLoading ? <Loader2 className="mx-auto my-4 size-5 animate-spin text-muted-foreground" /> : null}
-          {chats && !chats.length ? <p className="py-3 text-sm text-muted-foreground">Cuando hagas match con alguien vas a poder mandárselo por chat.</p> : null}
-          <ul className="flex flex-col gap-1">
-            {visibleChats.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 py-1.5">
-                <PartyAvatar party={c.other} />
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-semibold">{c.other.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{c.other.subtitle}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => send(c.id)}
-                  disabled={sent.has(c.id) || sending === c.id}
-                  className={cn('flex min-w-20 items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold', sent.has(c.id) ? 'bg-secondary' : 'bg-olympic-blue text-olympic-white')}
-                >
-                  {sending === c.id ? <Loader2 className="size-3.5 animate-spin" /> : sent.has(c.id) ? 'Enviado' : 'Enviar'}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
-        </>
-      ) : null}
+      {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
     </Sheet>
   )
 }
