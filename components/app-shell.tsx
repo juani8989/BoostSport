@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Bell, Handshake, House, LogOut, Menu, MessageCircle, Trophy, UserRound } from 'lucide-react'
+import { ArrowLeft, Bell, Handshake, House, LogOut, Menu, MessageCircle, Plus, Trophy, UserRound } from 'lucide-react'
 import { signOut, type Account, type Role } from '@/lib/auth-store'
 import { roleConfig } from '@/lib/roles'
 import { useAppStore } from '@/components/app-store'
@@ -19,6 +19,8 @@ import { OrgProfileView } from '@/components/profile/org-profile'
 import { cn } from '@/lib/utils'
 import { BrandLine, BrandLogo } from '@/components/brand-logo'
 import { SettingsPanel } from '@/components/settings/settings-panel'
+import { Composer } from '@/components/home/companeros-feed'
+import { mutate as globalMutate } from 'swr'
 import { ApplyPreferences } from '@/components/settings/apply-preferences'
 
 const tabs: { id: MainTab; label: string; icon: typeof House }[] = [
@@ -50,6 +52,9 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [askAccount, setAskAccount] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [composing, setComposing] = useState(false)
+  // Only athletes publish in Compañeros (createPost enforces it too).
+  const canPost = viewer.role === 'deportista'
   const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
 
@@ -177,11 +182,10 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
 
           <nav aria-label="Secciones" className="absolute inset-x-0 bottom-0 z-30 border-t border-border bg-background/90 px-3 pb-4 pt-2 backdrop-blur">
             <ul className={cn('flex items-end', isGuest ? 'justify-around' : 'justify-between')}>
-              {visibleTabs.map(({ id, label, icon: Icon }) => {
+              {visibleTabs.flatMap(({ id, label, icon: Icon }) => {
                 const active = tab === id && !profileKey
                 const isMatch = id === 'match'
-                return (
-                  <li key={id} className="flex-1">
+                const button = (
                     <button
                       type="button"
                       onClick={() => goTo(id)}
@@ -202,8 +206,30 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
                       )}
                       {label}
                     </button>
+                )
+                const item = (
+                  <li key={id} className="flex-1">
+                    {button}
                   </li>
                 )
+                return canPost && id === 'match'
+                  ? [
+                      item,
+                      <li key="publicar" className="flex-1">
+                        <button
+                          type="button"
+                          onClick={() => setComposing(true)}
+                          aria-label="Nueva publicación"
+                          className="flex w-full flex-col items-center gap-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <span className="flex size-6 items-center justify-center rounded-md border-2 border-current">
+                            <Plus className="size-4" strokeWidth={3} />
+                          </span>
+                          Publicar
+                        </button>
+                      </li>,
+                    ]
+                  : [item]
               })}
             </ul>
           </nav>
@@ -211,6 +237,17 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
           <NotificationBanner />
           {showNotifications ? <NotificationsPanel onClose={() => setShowNotifications(false)} /> : null}
           {showSettings ? <SettingsPanel onClose={() => setShowSettings(false)} /> : null}
+          {composing ? (
+            <Composer
+              onClose={() => setComposing(false)}
+              onPosted={() => {
+                // Refresh every place the new post shows up.
+                globalMutate('companeros')
+                globalMutate(['athlete', 'me'])
+                globalMutate((key) => Array.isArray(key) && key[0] === 'profile-posts')
+              }}
+            />
+          ) : null}
           <ApplyPreferences enabled={!isGuest} />
           {askAccount ? (
             <Sheet title="Creá tu cuenta" onClose={() => setAskAccount(false)}>
