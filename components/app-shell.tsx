@@ -22,6 +22,8 @@ import { DesktopSidebar } from '@/components/app/desktop-sidebar'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import type { PageId } from '@/components/settings/types'
 import { ApplyPreferences } from '@/components/settings/apply-preferences'
+import { useSettings } from '@/components/settings/use-settings'
+import { OPEN_TUTORIAL_EVENT, Tutorial } from '@/components/onboarding/tutorial'
 
 const tabs: { id: MainTab; label: string; icon: typeof House }[] = [
   { id: 'inicio', label: 'Inicio', icon: House },
@@ -55,6 +57,22 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
   const fullWidth = (tab === 'inicio' || tab === 'vitrina') && !profileKey && chatId === null
+
+  // Welcome tutorial: once per account (saved in its settings), and again from Ayuda.
+  const { settings: prefs, ready: prefsReady, update: updatePrefs } = useSettings(!isGuest)
+  const [tutorialOpen, setTutorialOpen] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (prefsReady && tutorialOpen === null) setTutorialOpen(!prefs.tutorialSeen)
+  }, [prefsReady, prefs.tutorialSeen, tutorialOpen])
+  useEffect(() => {
+    const open = () => setTutorialOpen(true)
+    window.addEventListener(OPEN_TUTORIAL_EVENT, open)
+    return () => window.removeEventListener(OPEN_TUTORIAL_EVENT, open)
+  }, [])
+  const closeTutorial = () => {
+    setTutorialOpen(false)
+    if (!prefs.tutorialSeen) updatePrefs({ tutorialSeen: true })
+  }
   const { items: notifications, unread: unreadCount, paused, markRead } = useNotifications(!isGuest)
   const markAllRead = markRead
   // A short banner when something new arrives while the app is open (not for what was already there).
@@ -254,6 +272,9 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
           {showNotifications ? <NotificationsPanel onClose={() => setShowNotifications(false)} /> : null}
           {showSettings ? <SettingsPanel initialPage={showSettings === true ? undefined : showSettings} onClose={() => setShowSettings(false)} /> : null}
           <ApplyPreferences enabled={!isGuest} />
+          {tutorialOpen && !isGuest ? (
+            <Tutorial role={viewer.role as 'deportista' | 'empresa' | 'evento'} name={viewer.name} onDone={closeTutorial} onOpenSettings={() => setShowSettings(true)} />
+          ) : null}
           {askAccount ? (
             <Sheet title="Creá tu cuenta" onClose={() => setAskAccount(false)}>
               <div className="flex flex-col gap-4">

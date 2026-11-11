@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { BadgeCheck, Bug, ChevronDown, FileText, HelpCircle, Info, LifeBuoy, Mail, ShieldCheck, ShieldQuestion } from 'lucide-react'
+import { BadgeCheck, Bug, GraduationCap, ChevronDown, FileText, HelpCircle, Info, LifeBuoy, Mail, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { useSettings } from '@/components/settings/use-settings'
 import { Intro, Loading, Page, Row, Section, dateLabel } from '@/components/settings/ui'
 import type { PageProps } from '@/components/settings/types'
+import { OPEN_TUTORIAL_EVENT } from '@/components/onboarding/tutorial'
 
 const SUPPORT_EMAIL = 'BoostSportOly@gmail.com'
 
@@ -35,6 +36,9 @@ export function HelpPage({ back }: PageProps) {
             {open === i ? <p className="px-4 pb-4 pl-12 text-sm leading-relaxed text-muted-foreground">{f.a}</p> : null}
           </div>
         ))}
+      </Section>
+      <Section title="Aprender a usar la app">
+        <Row icon={GraduationCap} label="Ver el tutorial de nuevo" hint="Los gestos, Match, compartir y qué podés personalizar" onClick={() => window.dispatchEvent(new Event(OPEN_TUTORIAL_EVENT))} />
       </Section>
       <Section title="Contacto">
         <Row icon={Mail} label="Escribir a soporte" hint={SUPPORT_EMAIL} onClick={() => window.open(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Ayuda con BoostSport')}`)} />

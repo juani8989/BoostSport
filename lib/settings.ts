@@ -48,6 +48,8 @@ export type Settings = {
   saveFolders: string[]
   /** Which saved post is in which folder, as "folderId|targetId". */
   savedIn: string[]
+  /** Whether the welcome tutorial was finished or skipped. */
+  tutorialSeen: boolean
   notifications: {
     /** When the person last opened the notifications; anything newer is unread. */
     lastReadAt: string
@@ -123,6 +125,7 @@ export const DEFAULT_SETTINGS: Settings = {
   archived: [],
   saveFolders: [],
   savedIn: [],
+  tutorialSeen: false,
   notifications: {
     lastReadAt: '',
     pauseAll: false,
