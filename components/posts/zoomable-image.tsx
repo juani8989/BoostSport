@@ -8,7 +8,7 @@ type View = { scale: number; x: number; y: number }
 const MAX = 4
 
 /** Image with pinch zoom, double-tap zoom and drag to pan while zoomed. */
-export function ZoomableImage({ src, alt, className, eager }: { src: string; alt: string; className?: string; eager?: boolean }) {
+export function ZoomableImage({ src, alt, className, eager, hideButton }: { src: string; alt: string; className?: string; eager?: boolean; hideButton?: boolean }) {
   const [view, setView] = useState<View>({ scale: 1, x: 0, y: 0 })
   const gesture = useRef<{ dist?: number; scale: number; px?: number; py?: number; x: number; y: number; lastTap?: number }>({ scale: 1, x: 0, y: 0 })
   const zoomed = view.scale > 1.01
@@ -90,6 +90,7 @@ export function ZoomableImage({ src, alt, className, eager }: { src: string; alt
         className={cn('size-full select-none object-contain transition-transform duration-150 ease-out', className)}
         style={{ transform: `scale(${view.scale}) translate(${view.x}px, ${view.y}px)` }}
       />
+      {hideButton && !zoomed ? null : (
       <button
         type="button"
         onClick={(e) => {
@@ -101,6 +102,7 @@ export function ZoomableImage({ src, alt, className, eager }: { src: string; alt
       >
         {zoomed ? <ZoomOut className="size-4" /> : <ZoomIn className="size-4" />}
       </button>
+      )}
     </div>
   )
 }

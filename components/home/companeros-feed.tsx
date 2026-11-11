@@ -19,6 +19,7 @@ import { storeMedia } from '@/lib/upload'
 import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
 import { ShareSheet } from '@/components/share/share-sheet'
 import { useCheer } from '@/components/app/cheer'
+import { ZoomableImage } from '@/components/posts/zoomable-image'
 import { PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { useSettings } from '@/components/settings/use-settings'
@@ -87,15 +88,16 @@ export function CompanerosFeed() {
         <article key={post.id} className="relative h-full w-full shrink-0 snap-start snap-always overflow-hidden">
           {cheerFor === post.id ? cheer : null}
           {post.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={post.image} alt="" loading={index > 1 ? 'lazy' : 'eager'} className="absolute inset-0 size-full object-cover" />
+            // Pinch or double tap to zoom; once zoomed, the button to zoom back out shows up.
+            <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={index <= 1} className="object-cover" hideButton />
           ) : (
             <div aria-hidden className={cn('absolute inset-0 opacity-30', kindMeta[post.kind].className)} />
           )}
-          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-background/20" />
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/50 to-background/20" />
 
-          <div className="relative flex h-full items-end gap-3 px-4 pb-24 pt-36">
-            <div className="flex min-w-0 flex-1 flex-col gap-3">
+          {/* The text layer lets touches through to the photo (for zoom) except on its own controls. */}
+          <div className="pointer-events-none relative flex h-full items-end gap-3 px-4 pb-24 pt-36">
+            <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-3">
               {post.boostedBy || post.supported ? (
                 <p className="flex items-center gap-1.5 self-start rounded-full bg-olympic-yellow/90 px-2.5 py-1 text-[11px] font-bold text-olympic-black">
                   <HandHeart className="size-3.5" />
@@ -117,7 +119,7 @@ export function CompanerosFeed() {
               <p className={cn('text-pretty leading-relaxed', post.image ? 'text-sm' : 'font-display text-2xl font-semibold leading-snug')}>{post.body}</p>
             </div>
 
-            <div className="flex shrink-0 flex-col items-center gap-4">
+            <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-4">
               <RailButton label="Me gusta" count={hideCounts && !post.mine ? undefined : post.likes} active={post.liked} activeClass="text-olympic-red" onClick={() => react(post, 'like')}>
                 <Heart className={cn('size-6', post.liked && 'fill-current')} />
               </RailButton>
