@@ -8,6 +8,9 @@ import { getProfilePosts, getReactors } from '@/app/actions/posts'
 import { getKnownPeople, getMyActivity, getMyDeals, getMyPosts, getMySessions, getMySettings, getMyStats, getPeople, getSaveFolders, getSaved } from '@/app/actions/settings'
 import { getAdminOverview, getAdminUser, listAdminUsers } from '@/app/actions/admin'
 import { getMyNotifications } from '@/app/actions/notifications'
+import { getSearchExplore, searchEverything } from '@/app/actions/search'
+import { getVitrinaFeed } from '@/app/actions/vitrina'
+import { getRealOrg, getRealOrgs } from '@/app/actions/orgs'
 
 /**
  * Read-only data the screens load through /api/data. Next.js runs server actions one at a
@@ -34,12 +37,17 @@ export const dataFns = {
   getMyStats,
   getPeople,
   getProfilePosts,
+  getRealOrg,
+  getRealOrgs,
   getReactors,
   getSaveFolders,
   getSaved,
+  getSearchExplore,
   getThread,
+  getVitrinaFeed,
   listAdminUsers,
   listBrands,
+  searchEverything,
   searchPeople,
 }
 

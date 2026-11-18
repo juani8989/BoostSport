@@ -35,6 +35,7 @@ import { useCheer } from '@/components/app/cheer'
 import { FeedArrows } from '@/components/app/feed-arrows'
 import { useHeartBursts, useTapGestures } from '@/components/posts/tap-gestures'
 import { cn } from '@/lib/utils'
+import { AnimatedCount, FxIcon, useTap, type FxVariant } from '@/components/app/action-fx'
 import { load } from '@/lib/load'
 
 const kindMeta: Record<ViewerPost['kind'], { label: string; className: string }> = {
@@ -294,7 +295,7 @@ function Slide({
             aria-pressed={post.following}
             className={cn('flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-bold', post.following ? 'bg-secondary' : 'bg-olympic-blue text-olympic-white')}
           >
-            {post.following ? <UserCheck className="size-3.5" /> : <UserPlus className="size-3.5" />}
+            <FxIcon active={post.following} sparks={false}>{post.following ? <UserCheck className="size-3.5" /> : <UserPlus className="size-3.5" />}</FxIcon>
             {post.following ? 'Siguiendo' : 'Seguir'}
           </button>
         ) : null}
@@ -323,10 +324,10 @@ function Slide({
         <Action label="Apoyar" count={hideCounts ? undefined : post.apoyos} active={post.supported} activeClass="text-olympic-yellow" onClick={() => onToggle(post, 'apoyo', 'supported', 'apoyos')} onCount={() => onOpen('people')}>
           <HandHeart className={cn('size-6', post.supported && 'fill-current')} />
         </Action>
-        <Action label="Comentarios" count={post.comments} onClick={() => onOpen('comments')} onCount={() => onOpen('comments')}>
+        <Action label="Comentarios" count={post.comments} variant="tap" onClick={() => onOpen('comments')} onCount={() => onOpen('comments')}>
           <MessageCircle className="size-6" />
         </Action>
-        <Action label="Compartir" onClick={onShare}>
+        <Action label="Compartir" variant="fly" onClick={onShare}>
           <Share2 className="size-6" />
         </Action>
         <span className="flex-1" />
@@ -335,7 +336,7 @@ function Slide({
             <Gift className="size-6" />
           </Action>
         ) : null}
-        <Action label={post.saved ? 'Quitar de guardados' : 'Guardar'} active={post.saved} activeClass="text-olympic-yellow" onClick={() => onToggle(post, 'guardado', 'saved')}>
+        <Action label={post.saved ? 'Quitar de guardados' : 'Guardar'} active={post.saved} activeClass="text-olympic-yellow" variant="drop" onClick={() => onToggle(post, 'guardado', 'saved')}>
           <Bookmark className={cn('size-6', post.saved && 'fill-current')} />
         </Action>
       </div>
@@ -389,6 +390,7 @@ function Action({
   count,
   active,
   activeClass,
+  variant = 'pop',
   onClick,
   onCount,
   children,
@@ -397,22 +399,35 @@ function Action({
   count?: number
   active?: boolean
   activeClass?: string
+  variant?: FxVariant
   onClick: () => void
   onCount?: () => void
   children: React.ReactNode
 }) {
+  const [tap, bump] = useTap()
   return (
     <span className={cn('flex items-center text-sm font-semibold', active && activeClass)}>
-      <button type="button" onClick={onClick} aria-label={label} aria-pressed={active} className="flex size-10 items-center justify-center rounded-full hover:bg-secondary">
-        {children}
+      <button
+        type="button"
+        onClick={() => {
+          if (active === undefined) bump()
+          onClick()
+        }}
+        aria-label={label}
+        aria-pressed={active}
+        className="flex size-10 items-center justify-center rounded-full hover:bg-secondary"
+      >
+        <FxIcon active={active} tap={tap} variant={variant}>
+          {children}
+        </FxIcon>
       </button>
       {count !== undefined ? (
         onCount ? (
           <button type="button" onClick={onCount} aria-label={`Ver quiénes: ${label}`} className="-ml-1 pr-1.5 text-foreground underline-offset-2 hover:underline">
-            {compactNumber(count)}
+            <AnimatedCount value={count} />
           </button>
         ) : (
-          <span className="-ml-1 pr-1.5 text-foreground">{compactNumber(count)}</span>
+          <AnimatedCount value={count} className="-ml-1 pr-1.5 text-foreground" />
         )
       ) : null}
     </span>

@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { matches, messages, profiles, user } from '@/lib/db/schema'
 import { partyFromProfile, requireViewer, userKey, type Party } from '@/lib/viewer'
-import { companies, companyFromKey, seedAthleteFromKey, seedAthleteKey } from '@/lib/catalog'
+import { companies, companyFromKey, orgAffinity, seedAthleteFromKey, seedAthleteKey } from '@/lib/catalog'
 import { athletes } from '@/lib/data'
 import type { AthleteProfile, MerchItem, OrgProfile } from '@/lib/profile-types'
 import type { OfferMeta } from '@/app/actions/match'
@@ -308,10 +308,18 @@ export async function aiScout(brief: string): Promise<Result<{ results: ScoutRes
     return { ok: true, results, usedAi: true }
   } catch (error) {
     console.error('aiScout failed, using keyword fallback', error)
+    // Without the AI, read the request itself: keep who practices a sport it names, best fit first.
     const water = /nata|agua|water|remo|surf|kayak|buceo|triat|canot/
-    const results = candidates
-      .filter((c) => water.test(normalize(`${c.party.subtitle} ${c.summary}`)))
-      .map((c) => ({ ...c, score: 70 + Math.min(c.needs.length, 3) * 8, reason: 'Disciplina acuática y busca apoyo (filtro por palabras clave).' }))
+    const wantsWater = /acuatic|agua|nata/.test(normalize(request))
+    const scored = candidates.map((c) => {
+      const discipline = c.party.subtitle ?? ''
+      const sport = orgAffinity({ discipline, needs: [] }, { lookingFor: request }) > 45 || (wantsWater && water.test(normalize(`${discipline} ${c.summary}`)))
+      return { ...c, sport, score: Math.max(orgAffinity({ discipline, needs: c.needs }, { lookingFor: request }), sport ? 73 : 0) }
+    })
+    const anySport = scored.some((c) => c.sport)
+    const results = scored
+      .filter((c) => !anySport || c.sport)
+      .map(({ sport, ...c }) => ({ ...c, reason: sport ? 'Su disciplina coincide con lo que pediste (filtro por palabras clave).' : 'Ordenado por lo que necesita (filtro por palabras clave).' }))
       .sort((a, b) => b.score - a.score)
     return { ok: true, results, usedAi: false }
   }

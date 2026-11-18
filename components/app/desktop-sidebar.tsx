@@ -3,7 +3,7 @@
 import { Bell, LogOut, Menu, UserPlus } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { signOut } from '@/lib/auth-store'
-import { BrandMark } from '@/components/brand-logo'
+import { RefreshLogo } from '@/components/brand-logo'
 import type { MainTab } from '@/components/app/nav'
 import { cn } from '@/lib/utils'
 
@@ -44,9 +44,8 @@ export function DesktopSidebar({
   active,
   onTab,
   isGuest,
-  name,
-  roleLabel,
-  roleClass,
+  meName,
+  meAvatar,
   unreadCount,
   onNotifications,
   onSettings,
@@ -55,9 +54,8 @@ export function DesktopSidebar({
   active: MainTab | null
   onTab: (tab: MainTab) => void
   isGuest: boolean
-  name: string
-  roleLabel: string
-  roleClass: string
+  meName: string
+  meAvatar: React.ReactNode
   unreadCount: number
   onNotifications: () => void
   onSettings: () => void
@@ -65,13 +63,13 @@ export function DesktopSidebar({
   return (
     <aside className="sticky top-0 z-[60] hidden h-dvh w-[72px] shrink-0 flex-col border-r border-border bg-background px-3 py-6 md:flex">
       <div className="flex w-12 justify-center pb-8">
-        <BrandMark />
+        <RefreshLogo compact className="size-12" />
       </div>
 
       <nav aria-label="Secciones" className="flex flex-col gap-1">
         {tabs.map(({ id, label, icon: Icon }) => (
-          <RailItem key={id} label={label} active={active === id} onClick={() => onTab(id)}>
-            <Icon className={cn('size-6', id === 'match' && 'text-olympic-blue')} strokeWidth={active === id ? 2.5 : 1.75} />
+          <RailItem key={id} label={id === 'perfil' ? meName : label} active={active === id} onClick={() => onTab(id)}>
+            {id === 'perfil' ? meAvatar : <Icon className={cn('size-6', id === 'match' && 'text-olympic-blue')} strokeWidth={active === id ? 2.5 : 1.75} />}
           </RailItem>
         ))}
         {!isGuest ? (
@@ -99,14 +97,6 @@ export function DesktopSidebar({
             <Menu className="size-6" strokeWidth={1.75} />
           </RailItem>
         )}
-        <span tabIndex={0} aria-label={`${name} · ${roleLabel}`} className="group relative z-10 mt-2 flex h-12 w-max min-w-12 items-center rounded-xl hover:z-50 hover:bg-secondary hover:shadow-lg focus-visible:z-50 focus-visible:bg-secondary focus-visible:outline-none">
-          <span className="flex size-12 shrink-0 items-center justify-center">
-            <span className={cn('size-3 rounded-full', roleClass)} />
-          </span>
-          <span aria-hidden className={reveal}>
-            {name} · {roleLabel}
-          </span>
-        </span>
       </div>
     </aside>
   )

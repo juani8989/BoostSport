@@ -7,6 +7,7 @@ import { BadgeCheck, Bookmark, BriefcaseBusiness, HandHeart, Share2 } from 'luci
 import { useAppStore } from '@/components/app-store'
 import type { Athlete } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { FxIcon, useTap } from '@/components/app/action-fx'
 
 export function Slide({
   image,
@@ -45,24 +46,36 @@ export function Slide({
   )
 }
 
-export function AthleteTag({ athlete }: { athlete: Athlete }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="relative size-9 shrink-0 overflow-hidden rounded-full ring-2 ring-foreground">
-        <Image src={athlete.image} alt="" fill sizes="36px" className="object-cover" />
+/** Enough to show who a card belongs to: a sample athlete or a real one. */
+export type TagAthlete = Pick<Athlete, 'name' | 'sport' | 'city' | 'category'> & { image?: string; level?: Athlete['level']; verified?: boolean }
+
+export function AthleteTag({ athlete, onOpen }: { athlete: TagAthlete; onOpen?: () => void }) {
+  const verified = athlete.verified ?? athlete.level === 'Pro'
+  const content = (
+    <>
+      <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-xs font-bold ring-2 ring-foreground">
+        {athlete.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={athlete.image} alt="" className="absolute inset-0 size-full object-cover" />
+        ) : (
+          <span aria-hidden>{athlete.name.slice(0, 2).toUpperCase()}</span>
+        )}
       </div>
       <div className="flex min-w-0 flex-col leading-tight">
         <span className="flex items-center gap-1 text-sm font-semibold">
           {athlete.name}
-          {athlete.level === 'Pro' ? (
-            <BadgeCheck className="size-4 text-primary" aria-label="Perfil verificado" />
-          ) : null}
+          {verified ? <BadgeCheck className="size-4 text-primary" aria-label="Perfil verificado" /> : null}
         </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {athlete.sport} · {athlete.city} · {athlete.category}
-        </span>
+        <span className="truncate text-xs text-muted-foreground">{[athlete.sport, athlete.city, athlete.category].filter(Boolean).join(' · ')}</span>
       </div>
-    </div>
+    </>
+  )
+  return onOpen ? (
+    <button type="button" onClick={onOpen} aria-label={`Ver perfil de ${athlete.name}`} className="flex min-w-0 max-w-full items-center gap-2 self-start text-left">
+      {content}
+    </button>
+  ) : (
+    <div className="flex min-w-0 items-center gap-2">{content}</div>
   )
 }
 
@@ -100,10 +113,14 @@ function RailButton({
   onClick: () => void
   children: React.ReactNode
 }) {
+  const [tap, bump] = useTap()
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        if (active === undefined) bump()
+        onClick()
+      }}
       aria-pressed={active}
       className="flex flex-col items-center gap-1 text-foreground md:flex-row md:gap-1 md:pr-2"
     >
@@ -113,7 +130,9 @@ function RailButton({
           active && 'bg-accent text-accent-foreground',
         )}
       >
-        {children}
+        <FxIcon active={active} tap={tap} variant={label === 'Guardar' ? 'drop' : label === 'Compartir' ? 'fly' : 'pop'}>
+          {children}
+        </FxIcon>
       </span>
       <span className="text-[11px] font-semibold">{count ?? label}</span>
       <span className="sr-only">{label}</span>

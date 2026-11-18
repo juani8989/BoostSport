@@ -98,7 +98,7 @@ export function MatchDeck() {
   // Keyboard on computers: ← pass, → like, ↑ details.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (matched || (e.target as HTMLElement)?.closest('input, textarea')) return
+      if (matched || (e.target instanceof Element && e.target.closest('input, textarea'))) return
       if (e.key === 'ArrowLeft') decide('pass')
       else if (e.key === 'ArrowRight') decide('like')
       else if (e.key === 'ArrowUp') setExpanded((v) => !v)

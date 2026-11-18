@@ -274,6 +274,8 @@ export async function updateMyAthleteProfile(next: AthleteProfile): Promise<Resu
     // Managed from the Menciones tab, not from the profile form.
     press: current.press,
     pressHidden: current.pressHidden,
+    // Managed from the Vitrina (Logros tab), not from the profile form.
+    vitrina: current.vitrina,
     nicknames: [...new Set((Array.isArray(next.nicknames) ? next.nicknames : []).map((n) => String(n).trim().slice(0, 40)).filter(Boolean))].slice(0, 8),
     club: typeof next.club === 'string' ? next.club.trim().slice(0, 80) : undefined,
   }

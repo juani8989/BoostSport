@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import type { Party } from '@/lib/viewer'
 import { cn } from '@/lib/utils'
@@ -12,11 +12,14 @@ const roleRing: Record<Party['role'], string> = {
 }
 
 export function PartyAvatar({ party, className }: { party: Pick<Party, 'name' | 'image' | 'initials' | 'role'>; className?: string }) {
+  // A photo that fails to load (deleted file, bad link) falls back to the initials.
+  const [broken, setBroken] = useState<string | null>(null)
+  const image = party.image && party.image !== broken ? party.image : undefined
   return (
     <span className={cn('relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-display text-sm font-semibold ring-2', roleRing[party.role], className)}>
-      {party.image ? (
+      {image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img loading="lazy" decoding="async" src={party.image} alt="" className="absolute inset-0 size-full object-cover" />
+        <img loading="lazy" decoding="async" src={image} alt="" onError={() => setBroken(image)} className="absolute inset-0 size-full object-cover" />
       ) : (
         <span aria-hidden>{party.initials}</span>
       )}
@@ -113,4 +116,32 @@ export function compressImage(file: File, maxSide = 1080, quality = 0.72): Promi
 
 export function isComposing(e: React.KeyboardEvent) {
   return e.nativeEvent.isComposing || e.keyCode === 229
+}
+
+/** Placeholder for a full-screen feed post while it loads: the shapes of a post, gently pulsing. */
+export function FeedSkeleton({ label = 'Cargando publicaciones' }: { label?: string }) {
+  return (
+    <div role="status" aria-label={label} className="relative h-full w-full shrink-0 snap-start overflow-hidden bg-secondary/40">
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-t from-background via-secondary/30 to-secondary/60 motion-reduce:animate-none" />
+      <div className="relative flex h-full items-end gap-3 px-4 pb-24 pt-36 md:px-8">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 md:max-w-md">
+          <div className="flex items-center gap-2">
+            <span className="size-9 animate-pulse rounded-full bg-muted-foreground/25" />
+            <span className="flex flex-col gap-1.5">
+              <span className="h-3 w-28 animate-pulse rounded-full bg-muted-foreground/25" />
+              <span className="h-2.5 w-40 animate-pulse rounded-full bg-muted-foreground/20" />
+            </span>
+          </div>
+          <span className="h-5 w-16 animate-pulse rounded-full bg-muted-foreground/25" />
+          <span className="h-3 w-full animate-pulse rounded-full bg-muted-foreground/20" />
+          <span className="h-3 w-4/5 animate-pulse rounded-full bg-muted-foreground/20" />
+        </div>
+        <div className="flex shrink-0 flex-col items-center gap-4 md:hidden">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <span key={i} className="size-11 animate-pulse rounded-full bg-muted-foreground/20" style={{ animationDelay: `${i * 80}ms` }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }

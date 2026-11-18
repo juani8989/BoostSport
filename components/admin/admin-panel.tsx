@@ -6,7 +6,7 @@ import { ArrowRight, Building2, Eye, Handshake, LayoutDashboard, LogOut, Menu, M
 import { adminTestEmail, getAdminOverview, listAdminUsers } from '@/app/actions/admin'
 import { signOut } from '@/lib/auth-store'
 import type { Role } from '@/lib/profile-types'
-import { BrandLine, BrandLogo } from '@/components/brand-logo'
+import { BrandLine, BrandWordmark } from '@/components/brand-logo'
 import { AdminFeedbackProvider, Avatar, Button, RoleBadge, Section, formatDate, roleMeta, useAdminFeedback } from '@/components/admin/admin-ui'
 import { AdminUserList, prefetchAdminUser } from '@/components/admin/admin-user-list'
 import { AdminUserDetail } from '@/components/admin/admin-user-detail'
@@ -59,7 +59,7 @@ export function AdminPanel({ admin }: { admin: { id: string; name: string; email
           )}
         >
           <div className="flex items-center justify-between px-5 py-5">
-            <BrandLogo className="h-7 rounded-md" />
+            <BrandWordmark />
             <button type="button" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú" className="lg:hidden">
               <X className="size-5" />
             </button>

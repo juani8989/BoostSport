@@ -336,4 +336,35 @@ export function affinityScore(input: { discipline: string; needs: string[] }, co
   return Math.min(98, 52 + (sportMatch ? 30 : 0) + overlap * 5)
 }
 
+/** Sports that belong to a family, so "deportes de combate" or "running" in a profile counts for each of them. */
+const FAMILIES: { words: string[]; sports: string[] }[] = [
+  { words: ['combate', 'artes marciales', 'pelea', 'peleador'], sports: ['boxeo', 'judo', 'karate', 'taekwondo', 'kickboxing', 'mma', 'lucha', 'jiu', 'muay', 'esgrima'] },
+  { words: ['running', 'carrera', 'maraton', 'atletismo', 'trail'], sports: ['atletismo', 'maraton', 'running', 'trail', 'triatlon', 'fondo', 'velocidad', '100 m', '400 m'] },
+  { words: ['acuatico', 'natacion', 'agua'], sports: ['natacion', 'waterpolo', 'surf', 'remo', 'kayak', 'triatlon'] },
+  { words: ['ciclismo', 'bici', 'ruta'], sports: ['ciclismo', 'mtb', 'bmx', 'triatlon'] },
+]
+
+const NEED_WORDS: Record<string, string[]> = {
+  Indumentaria: ['indumentaria', 'ropa', 'kimono', 'camiseta', 'zapatilla'],
+  Equipamiento: ['equipamiento', 'guante', 'protector', 'cabezal', 'equipo'],
+  Viajes: ['viaje', 'pasaje', 'traslado'],
+  Dinero: ['dinero', 'beca', 'pago', 'premio'],
+  Nutrición: ['nutricion', 'hidratacion', 'suplemento'],
+  Visibilidad: ['visibilidad', 'difusion', 'embajador', 'representar'],
+}
+
+/**
+ * Affinity between an athlete and a real sponsor or institution, read from what the
+ * organization wrote in its profile (category, what it looks for, description).
+ */
+export function orgAffinity(input: { discipline: string; needs: string[] }, org: { category?: string; lookingFor?: string; description?: string; orgName?: string }) {
+  const text = normalize([org.orgName, org.category, org.lookingFor, org.description].filter(Boolean).join(' '))
+  const discipline = normalize(input.discipline)
+  const firstWord = discipline.split(/[\s·,]+/).find((w) => w.length >= 4) ?? ''
+  const direct = !!firstWord && text.includes(firstWord)
+  const family = FAMILIES.some((f) => f.words.some((w) => text.includes(w)) && f.sports.some((sp) => discipline.includes(sp)))
+  const overlap = input.needs.filter((n) => (NEED_WORDS[n] ?? [normalize(n)]).some((w) => text.includes(w))).length
+  return Math.min(98, 45 + (direct ? 35 : family ? 28 : 0) + overlap * 5)
+}
+
 export const MATCH_THRESHOLD = 60

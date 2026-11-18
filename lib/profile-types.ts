@@ -11,6 +11,11 @@ export type PressKind = 'noticia' | 'entrevista' | 'video' | 'podcast' | 'link'
 /** A news article, interview or link where the athlete appears. */
 export type PressLink = { url: string; title: string; source: string; kind: PressKind; date?: string; image?: string; addedAt?: string }
 
+/** A logro the athlete shows in the Vitrina: a medal won or a personal best. */
+export type VitrinaItem =
+  | { id: string; type: 'medalla'; title: string; event: string; medal: 'Oro' | 'Plata' | 'Bronce'; image?: string; createdAt: string }
+  | { id: string; type: 'marca'; metric: string; value: string; previous?: string; event?: string; image?: string; createdAt: string }
+
 export type AthleteProfile = {
   kind: 'deportista'
   firstName: string
@@ -40,6 +45,8 @@ export type AthleteProfile = {
   socials: { instagram: string; tiktok: string; x: string; youtube: string }
   needs: string[]
   needsDetail: string
+  /** Medals and personal bests shown in the Vitrina, newest first. */
+  vitrina?: VitrinaItem[]
 }
 
 export type OrgProfile = {

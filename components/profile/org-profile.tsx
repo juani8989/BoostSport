@@ -177,7 +177,7 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
         </section>
       ) : null}
 
-      {isCompany ? <AiScout /> : null}
+      {isCompany ? <AiScout lookingFor={profile.lookingFor} /> : null}
 
       <PeopleSearch roles={isCompany ? ['deportista', 'evento'] : ['deportista', 'empresa']} />
 

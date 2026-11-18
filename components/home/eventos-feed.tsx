@@ -7,14 +7,18 @@ import { events, seedAthleteKey, type SportEvent } from '@/lib/catalog'
 import { athletes } from '@/lib/data'
 import { getEventsState, toggleReaction } from '@/app/actions/social'
 import { useNav } from '@/components/app/nav'
-import { PartyAvatar, Sheet } from '@/components/app/kit'
+import { FeedSkeleton, PartyAvatar, Sheet } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
+import { FxIcon } from '@/components/app/action-fx'
 import { load } from '@/lib/load'
+import { RealOrgSlide, useRealOrgs } from '@/components/home/real-org'
 
 export function EventosFeed() {
   const nav = useNav()
   const { data: state, mutate } = useSWR('events-state', () => load('getEventsState'))
   const [detail, setDetail] = useState<SportEvent | null>(null)
+  // Real event accounts first, then the sample calendar.
+  const real = useRealOrgs('evento')
 
   async function toggleGoing(id: string) {
     if (!nav.requireAccount()) return
@@ -26,8 +30,13 @@ export function EventosFeed() {
     mutate()
   }
 
+  if (!real) return <FeedSkeleton label="Cargando eventos" />
+
   return (
     <>
+      {real.map((org, i) => (
+        <RealOrgSlide key={org.key} org={org} eager={i === 0} />
+      ))}
       {events.map((event, index) => {
         const s = state?.[event.id]
         return (
@@ -86,7 +95,7 @@ export function EventosFeed() {
                     s?.mine ? 'bg-olympic-green text-olympic-white' : 'bg-olympic-blue text-olympic-white',
                   )}
                 >
-                  {s?.mine ? <Check className="size-4" /> : <Users className="size-4" />}
+                  <FxIcon active={s ? s.mine : undefined}>{s?.mine ? <Check className="size-4" /> : <Users className="size-4" />}</FxIcon>
                   {s?.mine ? 'Voy a ir' : 'Quiero ir'}
                 </button>
                 <button type="button" onClick={() => setDetail(event)} className="flex items-center gap-2 rounded-full bg-secondary px-4 py-3 text-sm font-bold">
@@ -103,7 +112,7 @@ export function EventosFeed() {
   )
 }
 
-function EventDetail({ event, onClose }: { event: SportEvent; onClose: () => void }) {
+export function EventDetail({ event, onClose }: { event: SportEvent; onClose: () => void }) {
   return (
     <Sheet title={event.name} onClose={onClose} tall>
       <div className="flex flex-col gap-5 text-sm">

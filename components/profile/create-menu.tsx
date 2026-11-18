@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Lightbulb, Newspaper, Plus, Sun, Target, Users } from 'lucide-react'
+import { Lightbulb, Medal, Newspaper, Plus, Sun, Target, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { DailyKind } from '@/lib/catalog'
 import { cn } from '@/lib/utils'
 
-const OPTIONS: { kind: DailyKind | 'prensa'; label: string; hint: string; icon: LucideIcon; tone: string }[] = [
+const OPTIONS: { kind: DailyKind | 'prensa' | 'logro'; label: string; hint: string; icon: LucideIcon; tone: string }[] = [
   { kind: 'diario', label: 'Publicación', hint: 'Tu día, un entrenamiento o una competencia', icon: Sun, tone: 'text-olympic-blue' },
+  { kind: 'logro', label: 'Logro para la Vitrina', hint: 'Una medalla o una marca personal', icon: Medal, tone: 'text-olympic-yellow' },
   { kind: 'meta', label: 'Meta', hint: 'Algo que querés lograr', icon: Target, tone: 'text-olympic-red' },
   { kind: 'idea', label: 'Idea', hint: 'Un proyecto o algo que se te ocurrió', icon: Lightbulb, tone: 'text-olympic-yellow' },
   { kind: 'colab', label: 'Colab', hint: 'Buscá con quién entrenar o trabajar', icon: Users, tone: 'text-olympic-green' },
@@ -15,7 +16,7 @@ const OPTIONS: { kind: DailyKind | 'prensa'; label: string; hint: string; icon: 
 ]
 
 /** The + on the athlete's own profile: a dropdown of what they can create. */
-export function CreateMenu({ onCompose, onAddPress }: { onCompose: (kind: DailyKind) => void; onAddPress: () => void }) {
+export function CreateMenu({ onCompose, onAddPress, onAddLogro }: { onCompose: (kind: DailyKind) => void; onAddPress: () => void; onAddLogro: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -54,6 +55,7 @@ export function CreateMenu({ onCompose, onAddPress }: { onCompose: (kind: DailyK
                 onClick={() => {
                   setOpen(false)
                   if (o.kind === 'prensa') onAddPress()
+                  else if (o.kind === 'logro') onAddLogro()
                   else onCompose(o.kind)
                 }}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-secondary"
