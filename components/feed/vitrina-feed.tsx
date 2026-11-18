@@ -1,10 +1,15 @@
 'use client'
 
+import { useRef, useState } from 'react'
 import Image from 'next/image'
-import { Lock, Medal, ShieldCheck, TrendingDown, Unlock } from 'lucide-react'
+import useSWR, { mutate as globalMutate } from 'swr'
+import { Lock, Medal, Plus, ShieldCheck, TrendingUp, Unlock, UserCheck } from 'lucide-react'
 import { useAppStore } from '@/components/app-store'
 import { useNav } from '@/components/app/nav'
-import { athletes, vitrinaPosts, type VitrinaPost } from '@/lib/data'
+import type { VitrinaCard } from '@/app/actions/vitrina'
+import { LogroSheet } from '@/components/profile/logro-sheet'
+import { load } from '@/lib/load'
+import { FeedSkeleton } from '@/components/app/kit'
 import { ActionRail, AthleteTag, Chip, ProgressBar, Slide } from './slide'
 import { Button } from '@/components/ui/button'
 
@@ -34,24 +39,31 @@ function Sparkline({ points }: { points: number[] }) {
   )
 }
 
-function VitrinaSlide({ post, index }: { post: VitrinaPost; index: number }) {
+function VitrinaSlide({ post, index }: { post: VitrinaCard; index: number }) {
   const { mode, unlockedSecrets } = useAppStore()
-  const { goTo } = useNav()
+  const { goTo, openProfile } = useNav()
   const setTab = goTo
-  const athlete = athletes[post.athleteId]
+  const athlete = post.athlete
+  const tag = <AthleteTag athlete={athlete} onOpen={() => openProfile(athlete.key)} />
 
   if (post.type === 'achievement') {
     return (
-      <Slide image={post.image} alt={`${athlete.name} celebrando`} priority={index === 0} rail={<ActionRail postId={post.id} applause={5120} />}>
+      <Slide image={post.image} alt={`${athlete.name} celebrando`} priority={index === 0} rail={<ActionRail postId={post.id} applause={post.real ? 0 : 5120} />}>
         <div className="flex flex-wrap gap-2">
           <Chip tone="gold">
             <Medal className="size-3.5" /> Medalla de {post.medal.toLowerCase()}
           </Chip>
-          <Chip tone="blue">
-            <ShieldCheck className="size-3.5" /> Verificado por {post.verifiedBy}
-          </Chip>
+          {post.verifiedBy ? (
+            <Chip tone="blue">
+              <ShieldCheck className="size-3.5" /> Verificado por {post.verifiedBy}
+            </Chip>
+          ) : (
+            <Chip>
+              <UserCheck className="size-3.5" /> Cargado por {athlete.name.split(' ')[0]}
+            </Chip>
+          )}
         </div>
-        <AthleteTag athlete={athlete} />
+        {tag}
         <h2 className="font-display text-4xl font-semibold leading-none text-balance">{post.title}</h2>
         <p className="text-sm text-muted-foreground">{post.event}</p>
         <div className="flex flex-col gap-1.5 rounded-xl bg-background/70 p-3 backdrop-blur">
@@ -70,22 +82,23 @@ function VitrinaSlide({ post, index }: { post: VitrinaPost; index: number }) {
 
   if (post.type === 'stats') {
     return (
-      <Slide image={post.image} alt="" rail={<ActionRail postId={post.id} applause={980} />}>
-        <Chip>Tarjeta de estadísticas</Chip>
-        <AthleteTag athlete={athlete} />
+      <Slide image={post.image} alt="" rail={<ActionRail postId={post.id} applause={post.real ? 0 : 980} />}>
+        <Chip>{post.real ? 'Nueva marca personal' : 'Tarjeta de estadísticas'}</Chip>
+        {tag}
         <div className="flex flex-col gap-2 rounded-2xl bg-background/80 p-4 backdrop-blur">
           <span className="text-xs uppercase tracking-wide text-muted-foreground">{post.metric} · marca personal</span>
           <span className="font-display text-5xl font-semibold leading-none">{post.current}</span>
-          <Sparkline points={post.points} />
+          {post.points.length > 1 ? <Sparkline points={post.points} /> : null}
           <span className="flex items-center gap-1.5 text-sm font-semibold text-accent">
-            <TrendingDown className="size-4" /> {post.summary}
+            <TrendingUp className="size-4" /> {post.summary}
           </span>
         </div>
       </Slide>
     )
   }
 
-  const unlocked = unlockedSecrets.has(post.athleteId)
+  if (post.type !== 'secret') return null
+  const unlocked = unlockedSecrets.has(athlete.key.replace(/^seed:at-/, ''))
   return (
     <article className="relative h-full w-full shrink-0 snap-start snap-always overflow-hidden">
       <Image
@@ -101,7 +114,7 @@ function VitrinaSlide({ post, index }: { post: VitrinaPost; index: number }) {
           <Chip tone="gold">
             {unlocked ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />} Top Secret
           </Chip>
-          <AthleteTag athlete={athlete} />
+          {tag}
           <h2 className="font-display text-3xl font-semibold leading-none text-balance">{post.title}</h2>
           {unlocked ? (
             <ul className="flex flex-col gap-2 rounded-xl bg-background/80 p-3 text-sm leading-relaxed backdrop-blur">
@@ -138,11 +151,40 @@ function VitrinaSlide({ post, index }: { post: VitrinaPost; index: number }) {
 }
 
 export function VitrinaFeed() {
+  const { role } = useNav()
+  const { data, mutate } = useSWR('vitrina', () => load('getVitrinaFeed'))
+  const [adding, setAdding] = useState(false)
+  const addButton = useRef<HTMLButtonElement>(null)
+  // After publishing, go back to the top: the new logro is the first card.
+  const showNewest = async () => {
+    await mutate()
+    globalMutate(['athlete', 'me'])
+    addButton.current?.closest('.snap-y')?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  if (!data) {
+    return <FeedSkeleton label="Cargando la Vitrina" />
+  }
+
   return (
     <>
-      {vitrinaPosts.map((post, i) => (
+      {data.map((post, i) => (
         <VitrinaSlide key={post.id} post={post} index={i} />
       ))}
+      {role === 'deportista' ? (
+        <>
+          <button
+            ref={addButton}
+            type="button"
+            onClick={() => setAdding(true)}
+            aria-label="Sumar un logro a la Vitrina"
+            className="absolute right-4 top-28 z-20 flex size-11 items-center justify-center rounded-full bg-olympic-red text-olympic-white shadow-lg"
+          >
+            <Plus className="size-5" />
+          </button>
+          {adding ? <LogroSheet onClose={() => setAdding(false)} onAdded={showNewest} /> : null}
+        </>
+      ) : null}
     </>
   )
 }

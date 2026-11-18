@@ -253,3 +253,79 @@
 @media (prefers-reduced-motion: reduce) {
   [class*='animate-tut-'] { animation: none !important; }
 }
+
+/* Action feedback (like, apoyar, guardar, seguir…): the icon pops, a ring and sparks fly out, counts roll. */
+@keyframes fx-pop {
+  0% { transform: scale(1); }
+  25% { transform: scale(0.7); }
+  55% { transform: scale(1.35) rotate(-8deg); }
+  75% { transform: scale(0.92) rotate(3deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes fx-off {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.75); }
+  100% { transform: scale(1); }
+}
+@keyframes fx-drop {
+  0% { transform: translateY(-10px) scale(1, 1); opacity: 0.4; }
+  45% { transform: translateY(2px) scale(1.15, 0.85); opacity: 1; }
+  70% { transform: translateY(-3px) scale(0.95, 1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes fx-wiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-14deg) scale(1.1); }
+  45% { transform: rotate(10deg) scale(1.1); }
+  70% { transform: rotate(-5deg); }
+}
+@keyframes fx-fly {
+  0% { transform: translate(0, 0); opacity: 1; }
+  40% { transform: translate(10px, -12px) scale(0.8); opacity: 0; }
+  41% { transform: translate(-10px, 12px) scale(0.8); opacity: 0; }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes fx-tap {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.8); }
+  70% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes fx-ring {
+  0% { opacity: 0.7; transform: scale(0.4); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+@keyframes fx-spark {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1); }
+}
+@keyframes fx-count-up {
+  0% { transform: translateY(70%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes fx-count-down {
+  0% { transform: translateY(-70%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes fx-shine {
+  0% { box-shadow: 0 0 0 0 currentColor; }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+.animate-fx-pop { animation: fx-pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.animate-fx-off { animation: fx-off 0.3s ease-out; }
+.animate-fx-drop { animation: fx-drop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.animate-fx-wiggle { animation: fx-wiggle 0.5s ease-in-out; }
+.animate-fx-fly { animation: fx-fly 0.55s ease-in-out; }
+.animate-fx-tap { animation: fx-tap 0.35s ease-out; }
+.animate-fx-ring { animation: fx-ring 0.55s ease-out forwards; }
+.animate-fx-spark { animation: fx-spark 0.6s ease-out forwards; }
+.animate-fx-count-up { animation: fx-count-up 0.3s ease-out; }
+.animate-fx-count-down { animation: fx-count-down 0.3s ease-out; }
+.animate-fx-shine { animation: fx-shine 0.6s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-fx-'] { animation: none !important; }
+}
+
+/* Every button gives a little under the finger. */
+button:not(:disabled):active { scale: 0.96; }

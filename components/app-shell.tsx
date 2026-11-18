@@ -1,11 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Bell, Handshake, House, LogOut, Menu, MessageCircle, Trophy, UserRound } from 'lucide-react'
+import { ArrowLeft, Bell, Handshake, House, LogOut, Menu, MessageCircle, Search, UserRound } from 'lucide-react'
 import { signOut, type Account, type Role } from '@/lib/auth-store'
-import { roleConfig } from '@/lib/roles'
 import { useAppStore } from '@/components/app-store'
-import { VitrinaFeed } from '@/components/feed/vitrina-feed'
+import { SearchPanel } from '@/components/search/search-panel'
 import { NotificationBanner, NotificationsPanel, useNotifications } from '@/components/notifications'
 import { NavContext, type MainTab, type Nav } from '@/components/app/nav'
 import { Sheet } from '@/components/app/kit'
@@ -17,9 +16,8 @@ import { ChatThread } from '@/components/messages/chat-thread'
 import { AthleteProfileView } from '@/components/profile/athlete-profile'
 import { OrgProfileView } from '@/components/profile/org-profile'
 import { cn } from '@/lib/utils'
-import { BrandLine, BrandLogo } from '@/components/brand-logo'
+import { BrandLine, RefreshLogo } from '@/components/brand-logo'
 import { DesktopSidebar } from '@/components/app/desktop-sidebar'
-import { FeedArrows } from '@/components/app/feed-arrows'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import type { PageId } from '@/components/settings/types'
 import { ApplyPreferences } from '@/components/settings/apply-preferences'
@@ -28,7 +26,7 @@ import { OPEN_TUTORIAL_EVENT, Tutorial } from '@/components/onboarding/tutorial'
 
 const tabs: { id: MainTab; label: string; icon: typeof House }[] = [
   { id: 'inicio', label: 'Inicio', icon: House },
-  { id: 'vitrina', label: 'Vitrina', icon: Trophy },
+  { id: 'buscar', label: 'Buscar', icon: Search },
   { id: 'match', label: 'Match', icon: Handshake },
   { id: 'mensajes', label: 'Mensajes', icon: MessageCircle },
   { id: 'perfil', label: 'Perfil', icon: UserRound },
@@ -40,11 +38,32 @@ export type Viewer = {
   account?: Account
 }
 
-const roleBadge: Record<Viewer['role'], string> = {
-  deportista: 'bg-olympic-blue text-olympic-white',
-  empresa: 'bg-olympic-yellow text-olympic-black',
-  evento: 'bg-olympic-green text-olympic-white',
-  invitado: 'bg-olympic-red text-olympic-white',
+/** Short name for the Perfil tab: the nickname if there is one, else the first name(s), or the organization's name. */
+function shortName(viewer: Viewer) {
+  const profile = viewer.account?.profile
+  if (profile?.kind === 'deportista') return profile.nicknames?.find((n) => n.trim())?.trim() || profile.firstName.trim() || viewer.name
+  if (profile) return profile.orgName.trim() || viewer.name
+  return viewer.name
+}
+
+function profilePhoto(viewer: Viewer) {
+  const profile = viewer.account?.profile
+  const src = profile?.kind === 'deportista' ? profile.photo : profile?.logo
+  return src && /^(https:\/\/|\/|data:image\/)/.test(src) ? src : undefined
+}
+
+/** The viewer's own photo (or initials) in place of the Perfil icon. */
+function MeAvatar({ src, name, active, className }: { src?: string; name: string; active: boolean; className?: string }) {
+  return (
+    <span className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-[10px] font-bold ring-2', active ? 'ring-foreground' : 'ring-transparent', className)}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <span aria-hidden>{name.slice(0, 1).toUpperCase()}</span>
+      )}
+    </span>
+  )
 }
 
 export function AppShell({ viewer }: { viewer: Viewer }) {
@@ -57,8 +76,8 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [showSettings, setShowSettings] = useState<false | true | PageId>(false)
   const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
-  const vitrinaScroller = useRef<HTMLDivElement>(null)
-  const fullWidth = (tab === 'inicio' || tab === 'vitrina') && !profileKey && chatId === null
+  // Feeds and the search (with its side column) use the whole screen on computers.
+  const fullWidth = (tab === 'inicio' || tab === 'buscar') && !profileKey && chatId === null
 
   // Welcome tutorial: once per account (saved in its settings), and again from Ayuda.
   const { settings: prefs, ready: prefsReady, update: updatePrefs } = useSettings(!isGuest)
@@ -101,13 +120,29 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
     window.history.replaceState(null, '', url.toString())
   }, [])
   usePrefetchTabs(viewer.role)
-  const visibleTabs = isGuest ? tabs.filter((t) => t.id === 'inicio' || t.id === 'vitrina') : tabs
+  const visibleTabs = isGuest ? tabs.filter((t) => t.id === 'inicio' || t.id === 'buscar') : tabs
 
+  // Going to a section closes whatever is open on top (notifications, settings, a profile, a chat),
+  // so you land on the section you tapped instead of finding it once you close the panel.
   const goTo = useCallback((next: MainTab) => {
+    setShowNotifications(false)
+    setShowSettings(false)
+    setAskAccount(false)
     setProfileKey(null)
     setChatId(null)
     setTab(next)
   }, [])
+
+  // Only one panel at a time: opening notifications closes settings and the other way around.
+  const openNotifications = () => {
+    setShowSettings(false)
+    setShowNotifications(true)
+    markAllRead()
+  }
+  const openSettingsPanel = (page?: PageId) => {
+    setShowNotifications(false)
+    setShowSettings(page ?? true)
+  }
 
   const nav = useMemo<Nav>(
     () => ({
@@ -123,7 +158,10 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
         setTab('mensajes')
         setChatId(id)
       },
-      openSettings: (page) => setShowSettings(page ?? true),
+      openSettings: (page) => {
+        setShowNotifications(false)
+        setShowSettings(page ?? true)
+      },
       requireAccount: () => {
         if (!isGuest) return true
         setAskAccount(true)
@@ -133,7 +171,8 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
     [viewer.role, viewer.account, goTo, isGuest],
   )
 
-  const roleLabel = isGuest ? 'Invitado' : roleConfig[viewer.role as Role].label.split(' ')[0]
+  const meName = shortName(viewer)
+  const mePhoto = profilePhoto(viewer)
 
   return (
     <NavContext.Provider value={nav}>
@@ -143,15 +182,11 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
           active={profileKey ? null : tab}
           onTab={goTo}
           isGuest={isGuest}
-          name={viewer.name}
-          roleLabel={roleLabel}
-          roleClass={roleBadge[viewer.role]}
+          meName={meName}
+          meAvatar={<MeAvatar src={mePhoto} name={meName} active={!profileKey && tab === 'perfil'} className="size-7" />}
           unreadCount={unreadCount}
-          onNotifications={() => {
-            setShowNotifications(true)
-            markAllRead()
-          }}
-          onSettings={() => setShowSettings(true)}
+          onNotifications={openNotifications}
+          onSettings={() => openSettingsPanel()}
         />
         <div className="flex w-full min-w-0 justify-center md:flex-1 md:bg-secondary/40">
         {/* On computers this is a centered content column; on phones it fills the screen as before. */}
@@ -164,11 +199,8 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
         >
           <BrandLine className="absolute inset-x-0 top-0 z-40" />
           <header className="pointer-events-none absolute inset-x-0 top-0.5 z-30 flex md:hidden items-center justify-between gap-2 bg-gradient-to-b from-background/90 to-transparent px-4 pb-6 pt-4">
-            <p>
-              <BrandLogo className="h-7 rounded-md" />
-            </p>
+            <RefreshLogo className="pointer-events-auto" />
             <div className="pointer-events-auto flex items-center gap-2">
-              <span className={cn('rounded-full px-2.5 py-1 text-xs font-bold', roleBadge[viewer.role])}>{roleLabel}</span>
               {isGuest ? (
                 <button type="button" onClick={signOut} className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
                   Crear cuenta
@@ -176,10 +208,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
               ) : (
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowNotifications(true)
-                    markAllRead()
-                  }}
+                  onClick={openNotifications}
                   aria-label={`Notificaciones${unreadCount ? `, ${unreadCount} sin leer` : ''}`}
                   className="relative flex size-9 items-center justify-center rounded-full bg-background/60 backdrop-blur"
                 >
@@ -198,7 +227,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setShowSettings(true)}
+                  onClick={() => openSettingsPanel()}
                   aria-label="Configuración y actividad"
                   aria-haspopup="dialog"
                   className="flex size-9 items-center justify-center rounded-full bg-background/60 backdrop-blur"
@@ -211,14 +240,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
 
           <div className="h-full">
             {tab === 'inicio' ? <HomeFeed /> : null}
-            {tab === 'vitrina' ? (
-              <div className="relative h-full">
-                <div ref={vitrinaScroller} className="h-full snap-y snap-mandatory overflow-y-auto no-scrollbar">
-                  <VitrinaFeed />
-                </div>
-                <FeedArrows target={vitrinaScroller} className="right-4 top-28" />
-              </div>
-            ) : null}
+            {tab === 'buscar' ? <SearchPanel /> : null}
             {tab === 'match' && !isGuest ? <MatchDeck /> : null}
             {tab === 'mensajes' && !isGuest ? <Inbox /> : null}
             {tab === 'perfil' && !isGuest ? viewer.role === 'deportista' ? <AthleteProfileView profileKey="me" /> : <OrgProfileView viewer={viewer} /> : null}
@@ -253,7 +275,12 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
                       aria-current={active ? 'page' : undefined}
                       className={cn('flex w-full flex-col items-center gap-1 text-[11px] font-semibold transition-colors', active ? 'text-foreground' : 'text-muted-foreground')}
                     >
-                      {isMatch ? (
+                      {id === 'perfil' ? (
+                        <>
+                          <MeAvatar src={mePhoto} name={meName} active={active} className="size-6" />
+                          <span className="max-w-16 truncate">{meName}</span>
+                        </>
+                      ) : isMatch ? (
                         <span
                           className={cn(
                             '-mt-6 flex size-14 items-center justify-center rounded-2xl shadow-lg transition-colors',
@@ -265,7 +292,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
                       ) : (
                         <Icon className="size-6" />
                       )}
-                      {label}
+                      {id === 'perfil' ? null : label}
                     </button>
                   </li>
                 )
@@ -278,7 +305,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
           {showSettings ? <SettingsPanel initialPage={showSettings === true ? undefined : showSettings} onClose={() => setShowSettings(false)} /> : null}
           <ApplyPreferences enabled={!isGuest} />
           {tutorialOpen && !isGuest ? (
-            <Tutorial role={viewer.role as 'deportista' | 'empresa' | 'evento'} name={viewer.name} onDone={closeTutorial} onOpenSettings={() => setShowSettings(true)} />
+            <Tutorial role={viewer.role as 'deportista' | 'empresa' | 'evento'} name={viewer.name} onDone={closeTutorial} onOpenSettings={() => openSettingsPanel()} />
           ) : null}
           {askAccount ? (
             <Sheet title="Creá tu cuenta" onClose={() => setAskAccount(false)}>

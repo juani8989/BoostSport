@@ -4,7 +4,7 @@ import { createContext, useContext } from 'react'
 import type { Account, Role } from '@/lib/profile-types'
 import type { PageId } from '@/components/settings/types'
 
-export type MainTab = 'inicio' | 'vitrina' | 'match' | 'mensajes' | 'perfil'
+export type MainTab = 'inicio' | 'buscar' | 'match' | 'mensajes' | 'perfil'
 
 export type Nav = {
   role: Role | 'invitado'

@@ -21,8 +21,9 @@ import { ShareSheet } from '@/components/share/share-sheet'
 import { useCheer } from '@/components/app/cheer'
 import { ZoomableImage } from '@/components/posts/zoomable-image'
 import { useHeartBursts, useTapGestures } from '@/components/posts/tap-gestures'
-import { PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
+import { FeedSkeleton, PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
+import { AnimatedCount, FxIcon, useTap, type FxVariant } from '@/components/app/action-fx'
 import { useSettings } from '@/components/settings/use-settings'
 import { load } from '@/lib/load'
 
@@ -98,11 +99,7 @@ export function CompanerosFeed() {
   }
 
   if (isLoading || !data) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Cargando publicaciones" />
-      </div>
-    )
+    return <FeedSkeleton />
   }
 
   return (
@@ -159,19 +156,19 @@ export function CompanerosFeed() {
             </div>
 
             <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-4 md:absolute md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:flex-row md:gap-1 md:rounded-full md:bg-background/80 md:px-3 md:py-1.5 md:shadow-xl">
-              <RailButton label="Me gusta" count={hideCounts && !post.mine ? undefined : post.likes} active={post.liked} activeClass="text-olympic-red" onClick={() => react(post, 'like')}>
+              <RailButton label="Me gusta" count={hideCounts && !post.mine ? undefined : post.likes} active={post.liked} activeClass="text-olympic-red" variant="pop" onClick={() => react(post, 'like')}>
                 <Heart className={cn('size-6', post.liked && 'fill-current')} />
               </RailButton>
-              <RailButton label="Apoyar" count={hideCounts && !post.mine ? undefined : post.apoyos} active={post.supported} activeClass="text-olympic-yellow" onClick={() => react(post, 'apoyo')}>
+              <RailButton label="Apoyar" count={hideCounts && !post.mine ? undefined : post.apoyos} active={post.supported} activeClass="text-olympic-yellow" variant="pop" onClick={() => react(post, 'apoyo')}>
                 <HandHeart className={cn('size-6', post.supported && 'fill-current')} />
               </RailButton>
-              <RailButton label="Comentarios" count={post.comments} onClick={() => setCommentsFor(post)}>
+              <RailButton label="Comentarios" count={post.comments} variant="tap" onClick={() => setCommentsFor(post)}>
                 <MessageCircle className="size-6" />
               </RailButton>
-              <RailButton label={post.saved ? 'Quitar de guardados' : 'Guardar'} active={post.saved} activeClass="text-olympic-yellow" onClick={() => save(post)}>
+              <RailButton label={post.saved ? 'Quitar de guardados' : 'Guardar'} active={post.saved} activeClass="text-olympic-yellow" variant="drop" onClick={() => save(post)}>
                 <Bookmark className={cn('size-6', post.saved && 'fill-current')} />
               </RailButton>
-              <RailButton label="Compartir" onClick={() => share(post)}>
+              <RailButton label="Compartir" variant="fly" onClick={() => share(post)}>
                 <Share2 className="size-6" />
               </RailButton>
               {post.mine ? (
@@ -179,7 +176,7 @@ export function CompanerosFeed() {
                   <MoreHorizontal className="size-6" />
                 </RailButton>
               ) : (
-                <RailButton label="Reportar" onClick={() => (nav.requireAccount() ? setMenuFor(post) : null)}>
+                <RailButton label="Reportar" variant="wiggle" onClick={() => (nav.requireAccount() ? setMenuFor(post) : null)}>
                   <Flag className="size-6 fill-olympic-red text-olympic-red" />
                 </RailButton>
               )}
@@ -225,6 +222,7 @@ function RailButton({
   count,
   active,
   activeClass,
+  variant = 'tap',
   onClick,
   children,
 }: {
@@ -232,14 +230,26 @@ function RailButton({
   count?: number
   active?: boolean
   activeClass?: string
+  variant?: FxVariant
   onClick: () => void
   children: React.ReactNode
 }) {
+  const [tap, bump] = useTap()
   return (
-    <button type="button" onClick={onClick} aria-label={label} aria-pressed={active} className={cn('flex flex-col items-center gap-1 text-xs font-semibold md:flex-row md:gap-0.5 md:pr-2', active && activeClass)}>
+    <button
+      type="button"
+      onClick={() => {
+        if (active === undefined) bump()
+        onClick()
+      }}
+      aria-label={label} aria-pressed={active} className={cn('flex flex-col items-center gap-1 text-xs font-semibold md:flex-row md:gap-0.5 md:pr-2', active && activeClass)}>
       {/* On computers the actions sit in a bar at the bottom, so each count goes next to its icon. */}
-      <span className="flex size-11 items-center justify-center rounded-full bg-background/50 backdrop-blur md:bg-transparent md:backdrop-blur-none">{children}</span>
-      {count !== undefined ? <span className="text-foreground">{compactNumber(count)}</span> : null}
+      <span className="flex size-11 items-center justify-center rounded-full bg-background/50 backdrop-blur md:bg-transparent md:backdrop-blur-none">
+        <FxIcon active={active} tap={tap} variant={variant}>
+          {children}
+        </FxIcon>
+      </span>
+      {count !== undefined ? <AnimatedCount value={count} className="text-foreground" /> : null}
     </button>
   )
 }

@@ -156,7 +156,7 @@ export function DataUsagePage({ back }: PageProps) {
     <Page title="Uso de datos y multimedia" onBack={back}>
       <Section>
         <Toggle icon={Gauge} label="Ahorro de datos" hint="Cargamos las fotos en menor calidad cuando usás datos móviles." checked={settings.feed.dataSaver} onChange={(v) => update({ feed: { dataSaver: v } })} />
-        <Toggle icon={PlayCircle} label="Reproducción automática" hint="Los videos de la Vitrina arrancan solos al aparecer." checked={settings.feed.autoplay} onChange={(v) => update({ feed: { autoplay: v } })} />
+        <Toggle icon={PlayCircle} label="Reproducción automática" hint="Los videos del feed arrancan solos al aparecer." checked={settings.feed.autoplay} onChange={(v) => update({ feed: { autoplay: v } })} />
       </Section>
       <Section>
         <Row icon={settings.feed.dataSaver ? EyeOff : Eye} label="Calidad de las fotos" value={settings.feed.dataSaver ? 'Ahorro' : 'Alta'} />

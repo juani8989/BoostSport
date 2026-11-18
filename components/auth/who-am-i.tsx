@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { ArrowRight, Eye } from 'lucide-react'
 import { enterAsGuest, type Role } from '@/lib/auth-store'
-import { landingPhotos as panelImages } from '@/lib/landing-photos'
+import { landingPhotos as panelImages, photoOfTheDay } from '@/lib/landing-photos'
 import { roleConfig } from '@/lib/roles'
 import { BrandLine } from '@/components/brand-logo'
 import { cn } from '@/lib/utils'
@@ -121,6 +121,13 @@ export function WhoAmI() {
   const [selected, setSelected] = useState<Role | null>(null)
   const [hovered, setHovered] = useState<Role | null>(null)
   const [photoIndex, setPhotoIndex] = useState<Record<Role, number>>({ deportista: 0, empresa: 0, evento: 0 })
+  // Start from today's photo (it changes every day at 06:00 in Argentina). Set after mounting
+  // so the server render and the first client render agree.
+  useEffect(() => {
+    // One step back: hovering advances before showing, so the first hover lands on today's photo.
+    const start = (role: Role) => photoOfTheDay(role) + panelImages[role].length - 1
+    setPhotoIndex({ deportista: start('deportista'), empresa: start('empresa'), evento: start('evento') })
+  }, [])
   const [seen, setSeen] = useState<Set<string>>(() => new Set())
 
   const activate = (role: Role) => {

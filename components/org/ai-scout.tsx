@@ -7,11 +7,12 @@ import { useNav } from '@/components/app/nav'
 import { PartyAvatar } from '@/components/app/kit'
 import { InviteButton } from '@/components/org/invite-button'
 
-const DEFAULT_BRIEF = 'Deportistas de disciplinas acuáticas que necesiten sponsor de indumentaria, equipamiento o viajes.'
+const DEFAULT_BRIEF = 'Deportistas que necesiten sponsor de indumentaria, equipamiento o viajes.'
 
-export function AiScout() {
+/** Starts from what the brand wrote it looks for, so the first search fits its own sport. */
+export function AiScout({ lookingFor }: { lookingFor?: string }) {
   const nav = useNav()
-  const [brief, setBrief] = useState(DEFAULT_BRIEF)
+  const [brief, setBrief] = useState(lookingFor?.trim() || DEFAULT_BRIEF)
   const [results, setResults] = useState<ScoutResult[] | null>(null)
   const [usedAi, setUsedAi] = useState(true)
   const [loading, setLoading] = useState(false)

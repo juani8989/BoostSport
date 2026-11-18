@@ -65,3 +65,16 @@ export const landingPhotos: Record<Role, LandingPhoto[]> = {
     own('real-event-3'),
   ],
 }
+
+/** The photo of the day changes at 06:00 in Argentina (09:00 UTC). */
+const ROTATION_HOUR_UTC = 9
+const DAY_MS = 24 * 60 * 60 * 1000
+// Each role moves through its list at its own pace, so the three don't change in step.
+const ROLE_OFFSET: Record<Role, number> = { deportista: 0, empresa: 3, evento: 6 }
+
+/** Index of the first photo to show today for a role; hovering keeps advancing from there. */
+export function photoOfTheDay(role: Role, now = Date.now()) {
+  const day = Math.floor((now - ROTATION_HOUR_UTC * 60 * 60 * 1000) / DAY_MS)
+  const count = landingPhotos[role].length
+  return (((day + ROLE_OFFSET[role]) % count) + count) % count
+}

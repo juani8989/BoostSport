@@ -90,6 +90,9 @@ export function useHeartBursts() {
   const pop = useCallback((x: number, y: number) => {
     const id = Date.now() + Math.random()
     setHearts((h) => [...h, { id, x, y }])
+    try {
+      navigator.vibrate?.(15)
+    } catch {}
     setTimeout(() => setHearts((h) => h.filter((v) => v.id !== id)), 900)
   }, [])
   const node = (

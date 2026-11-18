@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR, { mutate as globalMutate } from 'swr'
-import { ArrowLeft, BadgeCheck, Bookmark, Handshake, HandHeart, Heart, Loader2, MessageCircle, Settings2, Target, Trophy, UserPlus, UserCheck } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Bookmark, Handshake, HandHeart, Heart, Loader2, Medal, MessageCircle, Plus, Settings2, Target, Trash2, Trophy, TrendingUp, UserPlus, UserCheck } from 'lucide-react'
 import { getAthleteMentions, getAthleteProfile, updateMyAthleteProfile } from '@/app/actions/athlete'
 import { toggleFollow, toggleReaction } from '@/app/actions/social'
 import { swipe } from '@/app/actions/match'
@@ -12,6 +12,8 @@ import { PartyAvatar, Sheet, compactNumber, timeAgo } from '@/components/app/kit
 import { AthleteProfileForm } from '@/components/auth/athlete-profile-form'
 import { AddPressSheet, PressMentions } from '@/components/profile/press-mentions'
 import { CreateMenu } from '@/components/profile/create-menu'
+import { LogroSheet } from '@/components/profile/logro-sheet'
+import { removeVitrinaItem } from '@/app/actions/vitrina'
 import { useCheer } from '@/components/app/cheer'
 import { Composer } from '@/components/home/companeros-feed'
 import type { DailyKind } from '@/lib/catalog'
@@ -19,6 +21,7 @@ import { PostViewer } from '@/components/posts/post-viewer'
 import { ZoomableImage } from '@/components/posts/zoomable-image'
 import type { AthleteProfile } from '@/lib/profile-types'
 import { cn } from '@/lib/utils'
+import { FxIcon } from '@/components/app/action-fx'
 import { load } from '@/lib/load'
 
 type Section = 'publicaciones' | 'menciones' | 'metas' | 'logros'
@@ -38,6 +41,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
   const [openPost, setOpenPost] = useState<string | null>(initialPost ?? null)
   const [openPhoto, setOpenPhoto] = useState<{ src: string; caption: string } | null>(null)
   const [addingPress, setAddingPress] = useState(false)
+  const [addingLogro, setAddingLogro] = useState(false)
   const [composing, setComposing] = useState<DailyKind | null>(null)
   const [cheer, fireCheer] = useCheer()
 
@@ -116,7 +120,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
         {cheer}
         {data.isMe ? (
           <>
-            <CreateMenu onCompose={setComposing} onAddPress={() => setAddingPress(true)} />
+            <CreateMenu onCompose={setComposing} onAddPress={() => setAddingPress(true)} onAddLogro={() => setAddingLogro(true)} />
             <button
               type="button"
               onClick={() => nav.openSettings('guardados')}
@@ -181,7 +185,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
                 aria-pressed={data.following}
                 className={cn('flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold', data.following ? 'bg-secondary' : 'bg-olympic-blue text-olympic-white')}
               >
-                {data.following ? <UserCheck className="size-4" /> : <UserPlus className="size-4" />}
+                <FxIcon active={data.following}>{data.following ? <UserCheck className="size-4" /> : <UserPlus className="size-4" />}</FxIcon>
                 {data.following ? 'Siguiendo' : 'Seguir'}
               </button>
               <button
@@ -190,7 +194,9 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
                 aria-pressed={data.supported}
                 className={cn('flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold', data.supported ? 'bg-olympic-yellow text-olympic-black' : 'bg-secondary')}
               >
-                <HandHeart className="size-4" />
+                <FxIcon active={data.supported}>
+                  <HandHeart className={cn('size-4', data.supported && 'fill-current')} />
+                </FxIcon>
                 {data.supported ? 'Apoyando' : 'Apoyar'}
               </button>
               {isOrg ? (
@@ -344,6 +350,52 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
 
         {section === 'logros' ? (
           <div className="flex flex-col gap-5">
+            {p.vitrina?.length || data.isMe ? (
+              <section className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">En la Vitrina</h2>
+                  {data.isMe ? (
+                    <button type="button" onClick={() => setAddingLogro(true)} className="flex items-center gap-1 text-xs font-bold text-olympic-blue">
+                      <Plus className="size-3.5" /> Sumar logro
+                    </button>
+                  ) : null}
+                </div>
+                {p.vitrina?.length ? (
+                  <ul className="flex flex-col gap-2">
+                    {p.vitrina.map((v) => (
+                      <li key={v.id} className="flex items-center gap-3 rounded-xl bg-card p-3 text-sm">
+                        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-full', v.type === 'medalla' ? (v.medal === 'Oro' ? 'bg-olympic-yellow text-olympic-black' : v.medal === 'Plata' ? 'bg-zinc-300 text-zinc-900' : 'bg-amber-700 text-white') : 'bg-olympic-blue text-olympic-white')}>
+                          {v.type === 'medalla' ? <Medal className="size-4" /> : <TrendingUp className="size-4" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-semibold leading-snug">{v.type === 'medalla' ? v.title : `${v.metric}: ${v.value}`}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {v.type === 'medalla' ? `${v.medal} · ${v.event}` : [v.previous ? `Antes: ${v.previous}` : '', v.event].filter(Boolean).join(' · ') || 'Marca personal'}
+                          </span>
+                        </span>
+                        {data.isMe ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!window.confirm('¿Sacar este logro de la Vitrina?')) return
+                              await removeVitrinaItem(v.id)
+                              mutate()
+                              globalMutate('vitrina')
+                            }}
+                            aria-label="Sacar de la Vitrina"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">Sumá tus medallas y marcas personales: es lo primero que miran los sponsors.</p>
+                )}
+              </section>
+            ) : null}
             <ul className="flex flex-col gap-2">
               {achievements.map((a) => (
                 <li key={a} className="flex items-start gap-3 rounded-xl bg-card p-3 text-sm leading-relaxed">
@@ -381,6 +433,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
           onPosted={() => (mutate(), globalMutate('companeros'), globalMutate((key) => Array.isArray(key) && key[0] === 'profile-posts'))}
         />
       ) : null}
+      {addingLogro ? <LogroSheet onClose={() => setAddingLogro(false)} onAdded={() => (mutate(), globalMutate('vitrina'), setSection('logros'))} /> : null}
       {addingPress ? <AddPressSheet onClose={() => setAddingPress(false)} onAdded={() => (mutate(), mutateExtra(), setSection('menciones'))} /> : null}
       {openPost ? <PostViewer profileKey={data.key} startId={openPost} onClose={() => (setOpenPost(null), mutate())} /> : null}
       {openPhoto ? (

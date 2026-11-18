@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { matches, messages, profiles, swipes, user } from '@/lib/db/schema'
 import { describeParties, requireViewer, partyFromProfile, userKey, type Party, type ServerViewer } from '@/lib/viewer'
-import { MATCH_THRESHOLD, affinityScore, companies, companyFromKey, seedAthleteFromKey, seedAthleteKey, type Company } from '@/lib/catalog'
+import { MATCH_THRESHOLD, affinityScore, orgAffinity, companies, companyFromKey, seedAthleteFromKey, seedAthleteKey, type Company } from '@/lib/catalog'
 import { athletes } from '@/lib/data'
 import { getSettings, getSettingsMap, idFromKey } from '@/lib/user-settings'
 
@@ -95,7 +95,7 @@ export async function getDeck(opts?: { recycle?: boolean }): Promise<DeckCard[]>
     }
     for (const row of visibleRows) {
       const key = userKey(row.userId)
-      cards.push({ key, party: partyFromProfile(key, row.data as OrgProfile, row.name), affinity: 75, appliedToYou: appliedKeys.has(key) })
+      cards.push({ key, party: partyFromProfile(key, row.data as OrgProfile, row.name), affinity: orgAffinity({ discipline, needs }, row.data as OrgProfile), appliedToYou: appliedKeys.has(key) })
     }
   } else {
     for (const a of Object.values(athletes)) {
@@ -103,7 +103,8 @@ export async function getDeck(opts?: { recycle?: boolean }): Promise<DeckCard[]>
       cards.push({
         key,
         party: { key, name: a.name, role: 'deportista', subtitle: `${a.sport} · ${a.city}`, image: a.image, initials: a.name.slice(0, 2).toUpperCase() },
-        affinity: seedAffinity(a.id),
+        // Organizations with a profile get the fit with what they wrote; the rest keep the sample score.
+        affinity: viewer.profile.kind !== 'deportista' && (viewer.profile.category || viewer.profile.lookingFor) ? orgAffinity({ discipline: a.sport, needs: ['Indumentaria', 'Viajes'] }, viewer.profile) : seedAffinity(a.id),
         appliedToYou: false,
         athlete: { needs: ['Indumentaria', 'Viajes'], goals: `${a.category} · ${a.level}`, achievements: a.sponsoredBy ? `Patrocinado por ${a.sponsoredBy}` : 'Busca su primer sponsor', followers: a.followers },
       })
@@ -115,7 +116,7 @@ export async function getDeck(opts?: { recycle?: boolean }): Promise<DeckCard[]>
       cards.push({
         key,
         party: partyFromProfile(key, p, row.name),
-        affinity: appliedKeys.has(key) ? 92 : 80,
+        affinity: appliedKeys.has(key) ? 92 : viewer.profile.kind !== 'deportista' ? orgAffinity({ discipline: p.discipline ?? '', needs: p.needs ?? [] }, viewer.profile) : 80,
         appliedToYou: appliedKeys.has(key),
         athlete: { needs: p.needs ?? [], goals: p.goals ?? '', achievements: p.achievements ?? '' },
       })
