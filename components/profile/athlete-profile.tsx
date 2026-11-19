@@ -24,6 +24,7 @@ import { FxIcon } from '@/components/app/action-fx'
 import { FollowSheet, type FollowTab } from '@/components/profile/follow-sheet'
 import { load } from '@/lib/load'
 import { ShareSheet } from '@/components/share/share-sheet'
+import { SocialLinks } from '@/components/profile/social-links'
 import { galleryPhotoId } from '@/lib/photo-id'
 
 type Section = 'publicaciones' | 'menciones' | 'metas' | 'logros'
@@ -227,6 +228,8 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
               ))}
             </div>
           ) : null}
+
+          <SocialLinks socials={p.socials} className="hidden md:flex" />
 
           <div className="flex gap-2 md:max-w-2xl">
             {data.isMe ? (
@@ -682,6 +685,8 @@ function MobileHeader({
           ))}
         </div>
       ) : null}
+
+      <SocialLinks socials={p.socials} />
     </div>
   )
 }
