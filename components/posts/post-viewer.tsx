@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import useSWR, { mutate as globalMutate } from 'swr'
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Bookmark,
   Eye,
   Flag,
@@ -15,24 +18,25 @@ import {
   MoreHorizontal,
   Music2,
   Repeat2,
+  Send,
   Share2,
   Trash2,
   UserCheck,
   UserPlus,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react'
 import { getProfilePosts, getReactors, pledgeDonation, recordView, type ViewerPost } from '@/app/actions/posts'
-import { deletePost, reportPost, toggleFollow, toggleReaction } from '@/app/actions/social'
+import { addComment, deletePost, reportPost, toggleFollow, toggleReaction } from '@/app/actions/social'
 import { useNav } from '@/components/app/nav'
-import { PartyAvatar, Sheet, compactNumber, timeAgo } from '@/components/app/kit'
+import { PartyAvatar, Sheet, compactNumber, isComposing, timeAgo } from '@/components/app/kit'
 import { CommentsSheet } from '@/components/home/companeros-feed'
 import { useSettings } from '@/components/settings/use-settings'
 import { ZoomableImage } from '@/components/posts/zoomable-image'
 import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
 import { ShareSheet } from '@/components/share/share-sheet'
 import { useCheer } from '@/components/app/cheer'
-import { FeedArrows } from '@/components/app/feed-arrows'
 import { useHeartBursts, useTapGestures } from '@/components/posts/tap-gestures'
 import { cn } from '@/lib/utils'
 import { AnimatedCount, FxIcon, useTap, type FxVariant } from '@/components/app/action-fx'
@@ -70,7 +74,13 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
   const sharedPost = data?.find((p) => p.id === sharing)
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !sheet && onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || sheet) return
+      // Esc in a comment box with text just leaves the box, so what was typed isn't lost.
+      const field = e.target as HTMLInputElement | null
+      if (field?.tagName === 'INPUT' && field.value) return field.blur()
+      onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, sheet])
@@ -79,7 +89,7 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
   useEffect(() => {
     if (!data || positioned.current || !startId) return
     positioned.current = true
-    document.getElementById(`viewer-${startId}`)?.scrollIntoView({ block: 'start' })
+    document.getElementById(`viewer-${startId}`)?.scrollIntoView({ block: 'start', inline: 'start' })
   }, [data, startId])
 
   function patch(id: string, change: Partial<ViewerPost>) {
@@ -113,15 +123,28 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
 
   const hideCounts = settings.feed.hideLikeCounts
 
-  return (
-    <div className="absolute inset-0 z-50 bg-background animate-in fade-in duration-200 motion-reduce:animate-none" role="dialog" aria-modal="true" aria-label="Publicaciones">
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 bg-gradient-to-b from-background/90 to-transparent px-3 pb-6 pt-4">
-        <button type="button" onClick={onClose} aria-label="Volver al perfil" className="flex size-9 items-center justify-center rounded-full bg-background/60 backdrop-blur">
+  // Rendered at the top of the page so it covers everything, the side rail included.
+  return createPortal(
+    // Phones: full screen. Computers: a card over the darkened page, photo on the left and
+    // the conversation on the right, like Instagram's post window.
+    <div
+      className="fixed inset-0 z-[70] flex flex-col bg-background animate-in fade-in duration-200 motion-reduce:animate-none md:flex-row md:items-center md:justify-center md:bg-black/90 md:backdrop-blur-sm md:px-20 md:py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Publicaciones"
+    >
+      <button type="button" aria-hidden tabIndex={-1} onClick={onClose} className="absolute inset-0 hidden cursor-default md:block" />
+      <button type="button" onClick={onClose} aria-label="Cerrar" title="Cerrar (Esc)" className="absolute right-5 top-5 z-20 hidden size-10 items-center justify-center rounded-full text-white hover:bg-white/10 md:flex">
+        <X className="size-7" />
+      </button>
+      {/* Phones: a bar like Instagram's, "Publicaciones" and whose they are, with the way back. */}
+      <header className="relative z-20 flex shrink-0 items-center gap-2 border-b border-border bg-background px-2 py-2 md:hidden">
+        <button type="button" onClick={onClose} aria-label="Volver al perfil" className="flex size-10 items-center justify-center rounded-full hover:bg-secondary">
           <ArrowLeft className="size-5" />
         </button>
-        <div className="flex flex-col leading-tight">
-          <span className="text-xs text-muted-foreground">Publicaciones</span>
-          <span className="text-sm font-semibold">{data?.[0]?.author.name ?? ''}</span>
+        <div className="pointer-events-none absolute inset-x-14 flex flex-col items-center leading-tight">
+          <span className="text-[15px] font-bold">Publicaciones</span>
+          <span className="truncate text-xs text-muted-foreground">{data?.[0]?.author.name ?? ''}</span>
         </div>
         {data?.some((p) => p.audio) ? (
           <button type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? 'Activar sonido' : 'Silenciar'} className="ml-auto flex size-9 items-center justify-center rounded-full bg-background/60 backdrop-blur">
@@ -137,7 +160,12 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
       ) : null}
       {data && !data.length ? <p className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">No hay publicaciones para mostrar.</p> : null}
 
-      <div ref={scroller} className="h-full snap-y snap-mandatory overflow-y-auto no-scrollbar">
+      <div
+        ref={scroller}
+        // Computers: one post at a time, sideways, like Instagram.
+        // Phones: one continuous list of cards (the end of a post and the start of the next show together).
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-3 py-3 no-scrollbar md:relative md:space-y-0 md:p-0 md:flex md:flex-none md:h-[min(90dvh,860px)] md:w-full md:max-w-[1180px] md:snap-x md:overflow-x-auto md:overflow-y-hidden md:rounded-xl md:bg-background md:shadow-2xl"
+      >
         {data?.map((post, index) => (
           <Slide
             key={post.id}
@@ -151,13 +179,15 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
             onShare={() => share(post)}
             onOpen={(type) => (type === 'comments' || type === 'people' || nav.requireAccount() ? setSheet({ type, post }) : null)}
             onOpenProfile={() => (onClose(), nav.openProfile(post.author.key))}
+            onCommented={() => patch(post.id, { comments: post.comments + 1 })}
             cheer={cheerFor === post.id ? cheer : null}
             onCheer={() => (setCheerFor(post.id), fireCheer())}
           />
         ))}
       </div>
 
-      <FeedArrows target={scroller} className="right-3 top-1/2 -translate-y-1/2" />
+      {/* Phones swipe up and down; computers get Instagram's arrows on each side of the window. */}
+      <SideArrows target={scroller} />
       {sheet?.type === 'comments' ? <CommentsSheet post={sheet.post} onClose={() => setSheet(null)} onAdded={() => mutate()} /> : null}
       {sheet?.type === 'people' ? <PeopleSheet post={sheet.post} onClose={() => setSheet(null)} /> : null}
       {sheet?.type === 'donate' ? <DonateSheet post={sheet.post} onClose={() => setSheet(null)} onDone={() => patch(sheet.post.id, { donated: true, donations: sheet.post.donations + (sheet.post.donated ? 0 : 1) })} /> : null}
@@ -177,7 +207,8 @@ export function PostViewer({ profileKey, startId, onClose }: { profileKey: strin
         />
       ) : null}
       {sheet?.type === 'menu' ? <MenuSheet post={sheet.post} onClose={() => setSheet(null)} onRemoved={() => (mutate(), globalMutate(['athlete', profileKey]))} /> : null}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -192,6 +223,7 @@ function Slide({
   onShare,
   onOpen,
   onOpenProfile,
+  onCommented,
   cheer,
   onCheer,
 }: {
@@ -207,6 +239,7 @@ function Slide({
   onShare: () => void
   onOpen: (type: 'comments' | 'people' | 'donate' | 'menu') => void
   onOpenProfile: () => void
+  onCommented: () => void
 }) {
   const ref = useRef<HTMLElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -224,7 +257,8 @@ function Slide({
         const on = entry.isIntersecting && entry.intersectionRatio >= 0.6
         setActive(on)
         clearTimeout(timer)
-        if (on && !viewed.current) {
+        // Opening your own posts doesn't count as a view.
+        if (on && !viewed.current && !post.mine) {
           timer = setTimeout(() => {
             viewed.current = true
             recordView(post.id)
@@ -267,13 +301,24 @@ function Slide({
   const long = words.length > CAPTION_WORDS
   const caption = long && !expanded ? `${words.slice(0, CAPTION_WORDS).join(' ')}…` : post.body
   const kind = kindMeta[post.kind]
+  const desktop = useIsDesktop()
+  // On computers the comments are already on the right: the button just takes you to the box.
+  const openComments = () => {
+    const box = desktop ? (document.getElementById(`viewer-comment-${post.id}`) as HTMLInputElement | null) : null
+    if (box) box.focus()
+    else onOpen('comments')
+  }
 
   return (
-    <article ref={ref} id={`viewer-${post.id}`} className="relative flex h-full w-full shrink-0 snap-start snap-always flex-col gap-3 px-4 pb-6 pt-16">
+    <article
+      ref={ref}
+      id={`viewer-${post.id}`}
+      className="relative flex w-full shrink-0 flex-col gap-2 overflow-hidden rounded-3xl border border-border bg-card pb-4 md:h-full md:snap-start md:snap-always md:grid md:rounded-none md:border-0 md:bg-transparent md:grid-cols-[minmax(0,1fr)_400px] md:grid-rows-[auto_auto_minmax(0,1fr)_auto_auto] md:gap-0 md:p-0"
+    >
       {cheer}
       {post.audio ? <audio ref={audioRef} src={post.audio.url} loop preload="none" /> : null}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 px-3 pt-3 md:col-start-2 md:row-start-1 md:border-b md:border-border md:px-4 md:py-3">
         <button type="button" onClick={onOpenProfile} className="flex min-w-0 items-center gap-2 text-left">
           <PartyAvatar party={post.author} className="size-9" />
           <span className="flex min-w-0 flex-col leading-tight">
@@ -306,10 +351,12 @@ function Slide({
 
       {/* The photo is shown whole inside its frame; zoom only when the person asks for it.
           Double tap likes; double tap holding the second tap supports. */}
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black" {...gestures}>
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-black md:col-start-1 md:row-span-5 md:row-start-1 md:aspect-auto md:h-full md:min-h-0" {...gestures}>
         {hearts}
+        {/* Phones: what kind of post it is, on the photo itself. */}
+        <span className={cn('pointer-events-none absolute left-3 top-3 z-10 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide shadow md:hidden', kind.className)}>{kind.label}</span>
         {post.image ? (
-          <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={eager} />
+          <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={eager} className="object-cover md:object-contain" />
         ) : (
           <div className={cn('flex size-full items-center justify-center p-6', kind.className)}>
             <p className="line-clamp-[10] text-center font-display text-2xl font-semibold leading-snug">{post.body}</p>
@@ -317,14 +364,14 @@ function Slide({
         )}
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 px-1.5 md:col-start-2 md:row-start-4 md:gap-1 md:border-t md:border-border md:px-2 md:py-1">
         <Action label="Me gusta" count={hideCounts ? undefined : post.likes} active={post.liked} activeClass="text-olympic-red" onClick={() => onToggle(post, 'like', 'liked', 'likes')} onCount={() => onOpen('people')}>
           <Heart className={cn('size-6', post.liked && 'fill-current')} />
         </Action>
         <Action label="Apoyar" count={hideCounts ? undefined : post.apoyos} active={post.supported} activeClass="text-olympic-yellow" onClick={() => onToggle(post, 'apoyo', 'supported', 'apoyos')} onCount={() => onOpen('people')}>
           <HandHeart className={cn('size-6', post.supported && 'fill-current')} />
         </Action>
-        <Action label="Comentarios" count={post.comments} variant="tap" onClick={() => onOpen('comments')} onCount={() => onOpen('comments')}>
+        <Action label="Comentarios" count={post.comments} variant="tap" onClick={openComments} onCount={openComments}>
           <MessageCircle className="size-6" />
         </Action>
         <Action label="Compartir" variant="fly" onClick={onShare}>
@@ -341,18 +388,18 @@ function Slide({
         </Action>
       </div>
 
-      <div className={cn('flex shrink-0 flex-col gap-2', expanded && 'max-h-[40%] overflow-y-auto')}>
+      <div className={cn('flex shrink-0 flex-col gap-1.5 px-3 md:col-start-2 md:row-start-2 md:gap-2 md:px-4 md:pt-3', expanded && 'md:max-h-56 md:overflow-y-auto')}>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide', kind.className)}>{kind.label}</span>
+          <span className={cn('hidden rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide md:inline', kind.className)}>{kind.label}</span>
           {post.mine ? (
             <button type="button" onClick={() => onOpen('people')} className="flex items-center gap-1 underline-offset-2 hover:underline">
               <Eye className="size-3.5" />
-              {compactNumber(post.views)} vistas
+              {compactNumber(post.views)} {post.views === 1 ? 'vista' : 'vistas'}
             </button>
           ) : (
             <span className="flex items-center gap-1">
               <Eye className="size-3.5" />
-              {compactNumber(post.views)} vistas
+              {compactNumber(post.views)} {post.views === 1 ? 'vista' : 'vistas'}
             </span>
           )}
           {post.donations ? (
@@ -371,16 +418,25 @@ function Slide({
             {caption}{' '}
             {long ? (
               <button type="button" onClick={() => setExpanded((e) => !e)} className="font-semibold text-muted-foreground underline-offset-2 hover:underline">
-                {expanded ? 'ver menos' : 'seguir leyendo'}
+                {expanded ? 'ver menos' : 'más'}
               </button>
             ) : null}
           </p>
+        ) : null}
+
+        {/* Phones: the comments open in a sheet, like Instagram's "Ver los N comentarios". */}
+        {post.comments ? (
+          <button type="button" onClick={() => onOpen('comments')} className="self-start text-sm text-muted-foreground md:hidden">
+            {post.comments === 1 ? 'Ver el comentario' : `Ver los ${post.comments} comentarios`}
+          </button>
         ) : null}
 
         <time dateTime={post.createdAt} className="text-[11px] text-muted-foreground">
           {fullDate(post.createdAt)} · {timeAgo(post.createdAt)}
         </time>
       </div>
+
+      {desktop ? <InlineComments postId={post.id} load={active || eager} inputId={`viewer-comment-${post.id}`} onAdded={onCommented} /> : null}
     </article>
   )
 }
@@ -608,5 +664,132 @@ function MenuSheet({ post, onClose, onRemoved }: { post: ViewerPost; onClose: ()
         </div>
       )}
     </Sheet>
+  )
+}
+
+/** True on computers (md and up), where the post window shows comments beside the photo. */
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const update = () => setDesktop(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+  return desktop
+}
+
+/** The comments column of the post window on computers: the thread and a box to add one. */
+function InlineComments({ postId, load: shouldLoad, inputId, onAdded }: { postId: string; load: boolean; inputId: string; onAdded: () => void }) {
+  const nav = useNav()
+  const { data, mutate } = useSWR(shouldLoad ? ['comments', postId] : null, () => load('getComments', postId))
+  const [text, setText] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    if (!text.trim() || pending || !nav.requireAccount()) return
+    setPending(true)
+    setError(null)
+    const res = await addComment(postId, text)
+    setPending(false)
+    if (!res.ok) return setError(res.error)
+    setText('')
+    mutate()
+    onAdded()
+  }
+
+  return (
+    <>
+      <ul aria-label="Comentarios" className="hidden min-h-0 flex-col gap-4 overflow-y-auto px-4 py-4 md:col-start-2 md:row-start-3 md:flex">
+        {!data ? <li className="flex justify-center py-4"><Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Cargando comentarios" /></li> : null}
+        {data?.length === 0 ? <li className="text-sm text-muted-foreground">Todavía no hay comentarios. Sé el primero.</li> : null}
+        {data?.map((c) => (
+          <li key={c.id} className="flex flex-col gap-0.5">
+            <p className="text-sm leading-relaxed">
+              <span className="mr-1.5 font-semibold">{c.author}</span>
+              {c.body}
+            </p>
+            <span className="text-[11px] text-muted-foreground">{timeAgo(c.createdAt)}</span>
+          </li>
+        ))}
+      </ul>
+      {nav.role !== 'invitado' ? (
+        <form
+          className="hidden flex-col gap-1 border-t border-border px-4 py-2 md:col-start-2 md:row-start-5 md:flex"
+          onSubmit={(e) => {
+            e.preventDefault()
+            submit()
+          }}
+        >
+          {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          <div className="flex items-center gap-2">
+            <label htmlFor={inputId} className="sr-only">
+              Escribí un comentario
+            </label>
+            <input
+              id={inputId}
+              value={text}
+              maxLength={300}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isComposing(e)) {
+                  e.preventDefault()
+                  submit()
+                }
+              }}
+              placeholder="Agregá un comentario…"
+              className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <button type="submit" disabled={pending || !text.trim()} aria-label="Publicar comentario" className="flex items-center gap-1 text-sm font-bold text-olympic-blue disabled:opacity-40">
+              {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              Publicar
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </>
+  )
+}
+
+/** Previous / next post on computers: round buttons beside the window, and the ← → ↑ ↓ keys. */
+function SideArrows({ target }: { target: React.RefObject<HTMLDivElement | null> }) {
+  const [edge, setEdge] = useState({ first: true, last: false })
+  useEffect(() => {
+    const el = target.current
+    if (!el) return
+    const update = () => setEdge({ first: el.scrollLeft <= 4, last: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 })
+    update()
+    el.addEventListener('scroll', update, { passive: true })
+    const mo = new MutationObserver(update)
+    mo.observe(el, { childList: true })
+    return () => (el.removeEventListener('scroll', update), mo.disconnect())
+  }, [target])
+  const move = (dir: 1 | -1) => target.current?.scrollBy({ left: dir * target.current.clientWidth, behavior: 'smooth' })
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!window.matchMedia('(min-width: 768px)').matches) return
+      if ((e.target as HTMLElement | null)?.closest('input, textarea, [contenteditable="true"]')) return
+      // A sheet open on top (comments, people) keeps the keys.
+      const dialogs = document.querySelectorAll('[role="dialog"]')
+      const top = dialogs[dialogs.length - 1]
+      if (top && target.current && !top.contains(target.current)) return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') (e.preventDefault(), move(1))
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') (e.preventDefault(), move(-1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+  const button = 'absolute top-1/2 z-20 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-xl transition-opacity hover:bg-white/90 disabled:pointer-events-none disabled:opacity-0 md:flex'
+  return (
+    <>
+      <button type="button" onClick={() => move(-1)} disabled={edge.first} aria-label="Publicación anterior" title="Anterior (←)" className={cn(button, 'left-5')}>
+        <ChevronLeft className="size-6" />
+      </button>
+      <button type="button" onClick={() => move(1)} disabled={edge.last} aria-label="Publicación siguiente" title="Siguiente (→)" className={cn(button, 'right-5')}>
+        <ChevronRight className="size-6" />
+      </button>
+    </>
   )
 }

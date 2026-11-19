@@ -1,6 +1,6 @@
 'use server'
 
-import { and, count, desc, eq, gte, inArray, like, max, ne, or, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gt, gte, inArray, like, max, ne, or, sql } from 'drizzle-orm'
 import { postImageSrc } from '@/lib/media'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
@@ -144,8 +144,11 @@ async function buildRows(userIds?: string[], role?: Role): Promise<AdminUserRow[
 export async function getAdminOverview(): Promise<AdminOverview> {
   await requireAdmin()
   const weekAgo = new Date(Date.now() - 7 * 86_400_000)
-  const twoWeeksAgo = new Date(Date.now() - 13 * 86_400_000)
-  twoWeeksAgo.setHours(0, 0, 0, 0)
+  // Signups are grouped by Argentine day (UTC-3, no daylight saving), the same day the lists show;
+  // grouping by UTC day put evening signups on the next day.
+  const AR_OFFSET = 3 * 3_600_000
+  const firstDay = new Date(Date.now() - AR_OFFSET - 13 * 86_400_000).toISOString().slice(0, 10)
+  const twoWeeksAgo = new Date(`${firstDay}T03:00:00Z`)
 
   const n = (q: ReturnType<typeof sql>) => sql<number>`(${q})`.mapWith(Number)
   // All totals in a single round trip; the database is far from the app in development.
@@ -164,7 +167,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       .from(sql`(select 1) as one`),
     db.select({ role: profiles.role, n: count() }).from(profiles).groupBy(profiles.role),
     db
-      .select({ day: sql<string>`to_char(${user.createdAt}, 'YYYY-MM-DD')`, n: count() })
+      .select({ day: sql<string>`to_char(${user.createdAt} - interval '3 hours', 'YYYY-MM-DD')`, n: count() })
       .from(user)
       .where(gte(user.createdAt, twoWeeksAgo))
       .groupBy(sql`1`),
@@ -176,8 +179,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   const withProfile = byRole.reduce((acc, r) => acc + r.n, 0)
   const perDay = new Map(signupRows.map((r) => [r.day, r.n]))
   const signups = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(twoWeeksAgo.getTime() + i * 86_400_000)
-    const day = d.toISOString().slice(0, 10)
+    const day = new Date(twoWeeksAgo.getTime() - AR_OFFSET + i * 86_400_000).toISOString().slice(0, 10)
     return { day, count: perDay.get(day) ?? 0 }
   })
 
@@ -218,7 +220,8 @@ export async function getAdminUser(id: string): Promise<AdminUserDetail | null> 
   const [[p], creds, sess, userPosts, userComments, userMatches, [{ n: followers }], [{ n: following }], [{ n: reportsMade }], [{ n: reactionsN }]] = await Promise.all([
     db.select().from(profiles).where(eq(profiles.userId, id)).limit(1),
     db.select({ id: account.id }).from(account).where(and(eq(account.userId, id), eq(account.providerId, 'credential'))).limit(1),
-    db.select().from(session).where(eq(session.userId, id)).orderBy(desc(session.updatedAt)),
+    // Expired sessions can't be used any more: listing them as open would mislead the admin.
+    db.select().from(session).where(and(eq(session.userId, id), gt(session.expiresAt, new Date()))).orderBy(desc(session.updatedAt)),
     db.select().from(posts).where(eq(posts.userId, id)).orderBy(desc(posts.createdAt)).limit(200),
     db.select().from(comments).where(eq(comments.userId, id)).orderBy(desc(comments.createdAt)).limit(200),
     db.select().from(matches).where(or(eq(matches.athleteKey, key), eq(matches.orgKey, key))).orderBy(desc(matches.createdAt)),

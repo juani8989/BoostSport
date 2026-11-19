@@ -11,13 +11,13 @@ import { Sheet } from '@/components/app/kit'
 import { usePrefetchTabs } from '@/components/app/prefetch'
 import { HomeFeed } from '@/components/home/home-feed'
 import { MatchDeck } from '@/components/match/match-deck'
-import { Inbox } from '@/components/messages/inbox'
-import { ChatThread } from '@/components/messages/chat-thread'
+import { Messages } from '@/components/messages/messages'
 import { AthleteProfileView } from '@/components/profile/athlete-profile'
 import { OrgProfileView } from '@/components/profile/org-profile'
 import { cn } from '@/lib/utils'
 import { BrandLine, RefreshLogo } from '@/components/brand-logo'
 import { DesktopSidebar } from '@/components/app/desktop-sidebar'
+import { HomeAside, MessagesPill } from '@/components/home/home-aside'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import type { PageId } from '@/components/settings/types'
 import { ApplyPreferences } from '@/components/settings/apply-preferences'
@@ -44,6 +44,13 @@ function shortName(viewer: Viewer) {
   if (profile?.kind === 'deportista') return profile.nicknames?.find((n) => n.trim())?.trim() || profile.firstName.trim() || viewer.name
   if (profile) return profile.orgName.trim() || viewer.name
   return viewer.name
+}
+
+/** One line under the name in the Inicio side column: the sport or the kind of organization. */
+function profileSubtitle(viewer: Viewer) {
+  const profile = viewer.account?.profile
+  if (profile?.kind === 'deportista') return [profile.discipline, profile.country].filter(Boolean).join(' · ')
+  return viewer.role === 'empresa' ? 'Sponsor' : viewer.role === 'evento' ? 'Institución' : 'Invitado'
 }
 
 function profilePhoto(viewer: Viewer) {
@@ -76,8 +83,10 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
   const [showSettings, setShowSettings] = useState<false | true | PageId>(false)
   const [sharedPost, setSharedPost] = useState<string | undefined>()
   const isGuest = viewer.role === 'invitado'
-  // Feeds and the search (with its side column) use the whole screen on computers.
-  const fullWidth = (tab === 'inicio' || tab === 'buscar') && !profileKey && chatId === null
+  // Feeds, the search (with its side column) and messages (list + chat) use the whole screen on computers.
+  const fullWidth = (tab === 'inicio' || tab === 'buscar' || tab === 'mensajes') && !profileKey
+  // Athlete profiles get Instagram's wider column on computers: photo beside the name, a roomier grid.
+  const wideProfile = !!profileKey || (tab === 'perfil' && viewer.role === 'deportista')
 
   // Welcome tutorial: once per account (saved in its settings), and again from Ayuda.
   const { settings: prefs, ready: prefsReady, update: updatePrefs } = useSettings(!isGuest)
@@ -194,7 +203,8 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
           className={cn(
             'relative h-dvh w-full overflow-hidden bg-background',
             // Feeds use the whole screen on computers; profile, messages and Match stay in a readable column.
-            fullWidth ? 'md:max-w-none' : 'md:max-w-[640px] md:border-x md:border-border',
+            // Athlete profiles fill the screen (the cover goes edge to edge, the content stays centered).
+            fullWidth || wideProfile ? 'md:max-w-none' : 'md:max-w-[640px] md:border-x md:border-border',
           )}
         >
           <BrandLine className="absolute inset-x-0 top-0 z-40" />
@@ -242,11 +252,9 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
             {tab === 'inicio' ? <HomeFeed /> : null}
             {tab === 'buscar' ? <SearchPanel /> : null}
             {tab === 'match' && !isGuest ? <MatchDeck /> : null}
-            {tab === 'mensajes' && !isGuest ? <Inbox /> : null}
+            {tab === 'mensajes' && !isGuest ? <Messages chatId={chatId} onOpen={setChatId} onClose={() => setChatId(null)} /> : null}
             {tab === 'perfil' && !isGuest ? viewer.role === 'deportista' ? <AthleteProfileView profileKey="me" /> : <OrgProfileView viewer={viewer} /> : null}
           </div>
-
-          {chatId !== null ? <ChatThread matchId={chatId} onBack={() => setChatId(null)} /> : null}
 
           {profileKey ? (
             <div className="absolute inset-0 z-40 bg-background">
@@ -254,7 +262,7 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
                 type="button"
                 onClick={() => (setProfileKey(null), setSharedPost(undefined))}
                 aria-label="Volver"
-                className="absolute left-4 top-16 z-20 flex size-9 items-center justify-center rounded-full bg-secondary"
+                className="absolute left-4 top-16 z-20 flex size-10 items-center justify-center rounded-full bg-background/70 shadow-sm backdrop-blur transition-colors hover:bg-background md:top-4"
               >
                 <ArrowLeft className="size-4" />
               </button>
@@ -320,7 +328,11 @@ export function AppShell({ viewer }: { viewer: Viewer }) {
             </Sheet>
           ) : null}
         </div>
+        {tab === 'inicio' && !profileKey && !isGuest ? (
+          <HomeAside meName={viewer.name} mePhoto={mePhoto} meSubtitle={profileSubtitle(viewer)} onProfile={() => goTo('perfil')} />
+        ) : null}
         </div>
+        {!isGuest && tab !== 'mensajes' ? <MessagesPill onOpen={() => goTo('mensajes')} /> : null}
       </main>
     </NavContext.Provider>
   )

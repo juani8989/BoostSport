@@ -25,7 +25,7 @@ export type PublicAthlete = {
   supported: boolean
   canMessage: boolean
   matchId: number | null
-  stats: { posts: number; followers: number; likes: number; apoyos: number }
+  stats: { posts: number; followers: number; following: number; likes: number; apoyos: number }
   sponsors: string[]
   profile: Omit<AthleteProfile, 'selfie'>
   posts: ProfilePost[]
@@ -112,7 +112,7 @@ export async function getAthleteProfile(key: string): Promise<PublicAthlete | nu
   const seedPosts = seed ? seedDaily.filter((s) => s.athleteId === seed.id) : []
 
   // Everything independent goes out at once: each round trip to the database counts.
-  const [parties, followerRow, followingRow, supportRow, matchRow, sponsors, athleteSupport, seedLikes, owner] = await Promise.all([
+  const [parties, followerRow, followingRow, supportRow, matchRow, sponsors, athleteSupport, seedLikes, owner, followsOutRow] = await Promise.all([
     describeParties([targetKey]),
     db.select({ n: count() }).from(follows).where(eq(follows.targetId, targetKey)),
     viewer
@@ -132,7 +132,9 @@ export async function getAthleteProfile(key: string): Promise<PublicAthlete | nu
     sumReactions([`athlete:${targetKey}`], 'apoyo'),
     seed ? sumReactions(seedPosts.map((p) => p.id), 'like') : Promise.resolve(0),
     seed ? Promise.resolve(null) : ownerData(targetKey.slice(5)),
+    seed ? Promise.resolve([{ n: 0 }]) : db.select({ n: count() }).from(follows).where(eq(follows.followerId, targetKey.slice(5))),
   ])
+  const followsOut = Number(followsOutRow[0]?.n ?? 0)
   const party = parties.get(targetKey)
   if (!party || party.role !== 'deportista') return null
 
@@ -156,6 +158,7 @@ export async function getAthleteProfile(key: string): Promise<PublicAthlete | nu
       stats: {
         posts: seedPosts.length + 12,
         followers: Math.round(parseFloat(seed.followers.replace(',', '.')) * 1000) + Number(followerRow[0]?.n ?? 0),
+        following: 0,
         likes: baseLikes + seedLikes,
         apoyos: Math.round(baseLikes / 6) + athleteSupport,
       },
@@ -219,6 +222,7 @@ export async function getAthleteProfile(key: string): Promise<PublicAthlete | nu
     stats: {
       posts: myPosts.length,
       followers: base.isMe || settings.privacy.showFollowersCount ? Number(followerRow[0]?.n ?? 0) : -1,
+      following: base.isMe || (settings.privacy.showFollowersCount && !restricted) ? followsOut : -1,
       likes: [...likesBy.values()].reduce((a, b) => a + b, 0),
       apoyos: postApoyos + athleteSupport,
     },
@@ -269,6 +273,7 @@ export async function updateMyAthleteProfile(next: AthleteProfile): Promise<Resu
     ...next,
     famous: current.famous,
     identityVerified: current.identityVerified,
+    highPerformance: current.highPerformance,
     selfie: current.selfie,
     wikiUrl: current.wikiUrl,
     // Managed from the Menciones tab, not from the profile form.
@@ -370,4 +375,44 @@ export async function hideNewsItem(url: string): Promise<Result> {
   const hidden = [...new Set([...(profile.pressHidden ?? []), String(url).slice(0, 2000)])].slice(-200)
   await saveAthlete(viewer.id, { ...profile, pressHidden: hidden })
   return { ok: true }
+}
+
+export type FollowPerson = Party & { iFollow: boolean; isMe: boolean }
+export type FollowList = { hidden: boolean; people: FollowPerson[] }
+
+/** Who follows a profile ("seguidores") or who that profile follows ("seguidos"), newest first. */
+export async function getFollowList(key: string, which: 'seguidores' | 'seguidos'): Promise<FollowList> {
+  const viewer = await getViewer()
+  const targetKey = key === 'me' && viewer ? viewer.key : key
+  if (!/^(user:[\w-]+|seed:at-[a-z]+)$/.test(targetKey) || (which !== 'seguidores' && which !== 'seguidos')) return { hidden: true, people: [] }
+  const isMe = viewer?.key === targetKey
+  const userId = targetKey.startsWith('user:') ? targetKey.slice(5) : null
+
+  // Same privacy rules as the profile: blocked people, private accounts and a hidden follower count.
+  if (userId && !isMe) {
+    const [settings, followingRow] = await Promise.all([
+      getSettings(userId),
+      viewer ? db.select({ t: follows.targetId }).from(follows).where(and(eq(follows.followerId, viewer.id), eq(follows.targetId, targetKey))).limit(1) : Promise.resolve([]),
+    ])
+    if (viewer && settings.blocked.includes(viewer.key)) return { hidden: true, people: [] }
+    if ((settings.privacy.privateAccount && !followingRow.length) || !settings.privacy.showFollowersCount) return { hidden: true, people: [] }
+  }
+
+  // Seed athletes don't follow anyone; their real followers still show.
+  if (which === 'seguidos' && !userId) return { hidden: false, people: [] }
+  const rows =
+    which === 'seguidores'
+      ? (await db.select({ k: follows.followerId }).from(follows).where(eq(follows.targetId, targetKey)).orderBy(desc(follows.createdAt)).limit(300)).map((r) => userKey(r.k))
+      : (await db.select({ k: follows.targetId }).from(follows).where(eq(follows.followerId, userId!)).orderBy(desc(follows.createdAt)).limit(300)).map((r) => r.k)
+
+  const [parties, mine] = await Promise.all([
+    describeParties(rows),
+    viewer && rows.length ? db.select({ t: follows.targetId }).from(follows).where(and(eq(follows.followerId, viewer.id), inArray(follows.targetId, rows))) : Promise.resolve([]),
+  ])
+  const iFollow = new Set(mine.map((m) => m.t))
+  const people = rows.flatMap((k) => {
+    const p = parties.get(k)
+    return p ? [{ ...p, iFollow: iFollow.has(k), isMe: viewer?.key === k }] : []
+  })
+  return { hidden: false, people }
 }

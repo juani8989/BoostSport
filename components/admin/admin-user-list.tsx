@@ -30,7 +30,7 @@ export function refreshAdminData() {
   return globalMutate((key) => typeof key === 'string' && key.startsWith('admin:'))
 }
 
-export function AdminUserList({ section, onOpenUser }: { section: Exclude<AdminSection, 'resumen'>; onOpenUser: (id: string, tab?: 'perfil' | 'editar') => void }) {
+export function AdminUserList({ section, onOpenUser }: { section: Exclude<AdminSection, 'resumen' | 'verificaciones'>; onOpenUser: (id: string, tab?: 'perfil' | 'editar') => void }) {
   const { data, isLoading } = useSWR(`admin:users:${section}`, () => load('listAdminUsers', section))
   const { confirm, toast } = useAdminFeedback()
   const [query, setQuery] = useState('')

@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react'
 import { authClient } from '@/lib/auth-client'
 import { getMyRole } from '@/app/actions/profile'
-import { registerUser, resendVerification } from '@/app/actions/register'
+import { registerUser, resendVerification, type IdentityInput } from '@/app/actions/register'
 import type { AthleteProfile, OrgProfile, Role } from '@/lib/profile-types'
 
 export type { Account, AthleteProfile, OrgProfile, Role, TimelineEntry } from '@/lib/profile-types'
@@ -54,6 +54,7 @@ export async function registerAccount(input: {
   password: string
   name: string
   profile: AthleteProfile | OrgProfile
+  identity?: IdentityInput
 }): Promise<PendingVerification> {
   const result = await registerUser(input)
   if (!result.ok) throw new AuthError(result.error)
@@ -95,5 +96,11 @@ export function enterAsGuest() {
 export async function signOut() {
   setGuest(false)
   await authClient.signOut()
-  refreshRoute()
+  // What this device remembers for the leaving account (recent searches) goes with it.
+  try {
+    localStorage.removeItem('boostsport:search-history')
+  } catch {}
+  // A full reload, not just a route refresh: the data kept in memory for the account that is
+  // leaving (its Match deck, chats, feed) must not show up for the next one that signs in.
+  window.location.reload()
 }

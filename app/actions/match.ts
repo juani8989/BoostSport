@@ -4,11 +4,9 @@ import { and, asc, desc, eq, inArray, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { matches, messages, profiles, swipes, user } from '@/lib/db/schema'
 import { describeParties, requireViewer, partyFromProfile, userKey, type Party, type ServerViewer } from '@/lib/viewer'
-import { MATCH_THRESHOLD, affinityScore, orgAffinity, companies, companyFromKey, seedAthleteFromKey, seedAthleteKey, type Company } from '@/lib/catalog'
-import { athletes } from '@/lib/data'
+import { orgAffinity, companyFromKey, seedAthleteFromKey, type Company } from '@/lib/catalog'
 import { getSettings, getSettingsMap, idFromKey } from '@/lib/user-settings'
 
-const seedAffinity = (id: string) => 74 + ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 22)
 import type { AthleteProfile, OrgProfile } from '@/lib/profile-types'
 
 export type OfferType = 'Producto' | 'Dinero' | 'Embajador' | 'Sponsoreo'
@@ -30,6 +28,8 @@ export type DeckCard = {
   appliedToYou: boolean
   company?: Company
   athlete?: { needs: string[]; goals: string; achievements: string; followers?: string }
+  /** A real sponsor or institution: what it wrote in its profile. */
+  org?: { about?: string; lookingFor?: string; products: string[]; date?: string; place?: string }
 }
 
 export type MatchSummary = {
@@ -84,31 +84,19 @@ export async function getDeck(opts?: { recycle?: boolean }): Promise<DeckCard[]>
   if (viewer.role === 'deportista') {
     const needs = athleteNeeds(viewer.profile)
     const discipline = viewer.profile.kind === 'deportista' ? viewer.profile.discipline : ''
-    for (const company of companies) {
-      cards.push({
-        key: company.key,
-        party: { key: company.key, name: company.name, role: 'empresa', subtitle: company.industry, image: company.image, initials: company.initials },
-        affinity: affinityScore({ discipline, needs }, company),
-        appliedToYou: false,
-        company,
-      })
-    }
+    // Only real accounts: Match is where two people decide, and the sample brands can't.
     for (const row of visibleRows) {
       const key = userKey(row.userId)
-      cards.push({ key, party: partyFromProfile(key, row.data as OrgProfile, row.name), affinity: orgAffinity({ discipline, needs }, row.data as OrgProfile), appliedToYou: appliedKeys.has(key) })
-    }
-  } else {
-    for (const a of Object.values(athletes)) {
-      const key = seedAthleteKey(a.id)
+      const p = row.data as OrgProfile
       cards.push({
         key,
-        party: { key, name: a.name, role: 'deportista', subtitle: `${a.sport} · ${a.city}`, image: a.image, initials: a.name.slice(0, 2).toUpperCase() },
-        // Organizations with a profile get the fit with what they wrote; the rest keep the sample score.
-        affinity: viewer.profile.kind !== 'deportista' && (viewer.profile.category || viewer.profile.lookingFor) ? orgAffinity({ discipline: a.sport, needs: ['Indumentaria', 'Viajes'] }, viewer.profile) : seedAffinity(a.id),
-        appliedToYou: false,
-        athlete: { needs: ['Indumentaria', 'Viajes'], goals: `${a.category} · ${a.level}`, achievements: a.sponsoredBy ? `Patrocinado por ${a.sponsoredBy}` : 'Busca su primer sponsor', followers: a.followers },
+        party: partyFromProfile(key, p, row.name),
+        affinity: orgAffinity({ discipline, needs }, p),
+        appliedToYou: appliedKeys.has(key),
+        org: { about: p.description, lookingFor: p.lookingFor, products: (p.merch ?? []).map((m) => m.name), date: p.eventDate, place: p.eventInfo?.place || [p.city, p.country].filter(Boolean).join(', ') },
       })
     }
+  } else {
     for (const row of visibleRows) {
       if (row.userId === viewer.id) continue
       const key = userKey(row.userId)
@@ -168,14 +156,10 @@ export async function swipe(input: { targetKey: string; liked: boolean; pitch?: 
     .onConflictDoUpdate({ target: [swipes.userId, swipes.targetId], set: { liked: !!liked, pitch, challengeId } })
   if (!liked) return { ok: true, matched: false }
 
+  // A match only happens when both sides chose each other. Sample profiles (catalog brands and
+  // athletes) can't choose, so interest in them is saved but never turns into a match.
   let reciprocal = false
-  if (company) {
-    const discipline = viewer.profile.kind === 'deportista' ? viewer.profile.discipline : ''
-    const bonus = pitch || challengeId ? 12 : 0
-    reciprocal = affinityScore({ discipline, needs: athleteNeeds(viewer.profile) }, company) + bonus >= MATCH_THRESHOLD
-  } else if (seedAthlete) {
-    reciprocal = seedAthlete.seekingSponsor || seedAffinity(seedAthlete.id) >= 78
-  } else {
+  if (!company && !seedAthlete) {
     const otherId = targetKey.slice(5)
     const [back] = await db
       .select({ liked: swipes.liked })
@@ -220,6 +204,8 @@ export async function getMatches(): Promise<MatchSummary[]> {
       const other = parties.get(otherKey)
       if (!other) return null
       const thread = msgs.filter((m) => m.matchId === r.id)
+      // A chat opened from "Nuevo mensaje" shows up once someone writes in it.
+      if (!thread.length) return null
       const last = thread.at(-1)
       const offers = thread.filter((m) => m.kind === 'offer').map((m) => (m.meta as OfferMeta).status)
       const dealStatus = offers.includes('aceptada') ? 'aceptada' : offers.at(-1) ?? null
@@ -246,7 +232,10 @@ async function loadMatch(matchId: number, viewer: ServerViewer) {
   return { ...row, otherKey: row.athleteKey === viewer.key ? row.orgKey : row.athleteKey }
 }
 
-export async function getThread(matchId: number): Promise<{ other: Party; messages: ThreadMessage[] } | null> {
+/** Proposals are for a deportista and a marca or institución, not between two of the same kind. */
+const canDeal = (a: string, b: string) => (a === 'deportista') !== (b === 'deportista')
+
+export async function getThread(matchId: number): Promise<{ other: Party; canOffer: boolean; messages: ThreadMessage[] } | null> {
   const viewer = await requireViewer()
   const match = await loadMatch(matchId, viewer)
   if (!match) return null
@@ -258,6 +247,7 @@ export async function getThread(matchId: number): Promise<{ other: Party; messag
   if (!other) return null
   return {
     other,
+    canOffer: canDeal(viewer.role, other.role),
     messages: rows.map((m) => ({
       id: m.id,
       mine: m.senderKey === viewer.key,
@@ -300,6 +290,8 @@ export async function sendOffer(matchId: number, offer: { type: OfferType; items
   const viewer = await requireViewer()
   const match = await loadMatch(matchId, viewer)
   if (!match) return { ok: false, error: 'Conversación no encontrada.' }
+  const other = (await describeParties([match.otherKey])).get(match.otherKey)
+  if (!other || !canDeal(viewer.role, other.role)) return { ok: false, error: 'Las propuestas son entre deportistas y marcas o instituciones.' }
   if (!OFFER_TYPES.includes(offer.type)) return { ok: false, error: 'Tipo de propuesta inválido.' }
   const items = (Array.isArray(offer.items) ? offer.items : []).map((i) => String(i).trim().slice(0, 40)).filter(Boolean).slice(0, 6)
   if (!items.length) return { ok: false, error: 'Elegí al menos un beneficio.' }

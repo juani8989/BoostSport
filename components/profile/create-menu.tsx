@@ -33,14 +33,14 @@ export function CreateMenu({ onCompose, onAddPress, onAddLogro }: { onCompose: (
   }, [open])
 
   return (
-      <div ref={ref} className="absolute left-4 top-16 z-20 text-left">
+      <div ref={ref} className="absolute left-4 top-16 z-20 text-left md:top-4">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-label="Crear"
           aria-haspopup="menu"
           aria-expanded={open}
-          className={cn('flex size-10 items-center justify-center rounded-xl border-2 border-foreground transition-transform', open && 'rotate-45')}
+          className={cn('flex size-10 items-center justify-center rounded-full bg-olympic-blue text-olympic-white shadow-lg transition-transform hover:bg-olympic-blue/90', open && 'rotate-45')}
         >
           <Plus className="size-5" strokeWidth={2.5} />
         </button>

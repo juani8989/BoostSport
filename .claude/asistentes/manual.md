@@ -6,6 +6,8 @@ Lo leen todos los asistentes (`.claude/agents/asistentes/`) antes de empezar. Ju
 
 ## 1. Qué es BoostSport
 
+**Lema:** "Mostrá quién sos, obtené lo que merecés." El triángulo del logo une las tres puntas: deportistas, marcas y eventos.
+
 Un marketplace que conecta **deportistas** que buscan sponsor con **marcas (sponsors)** e **instituciones** (eventos, torneos, clubes, federaciones). Estética olímpica (anillos, cinco colores), tono argentino, pensado primero para el celular.
 
 **Los tres roles y el invitado:**

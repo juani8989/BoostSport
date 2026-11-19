@@ -24,6 +24,8 @@ export type AthleteProfile = {
   discipline: string
   famous: boolean
   identityVerified: boolean
+  /** "Alto rendimiento": found on official Olympic or federation databases and confirmed by an admin. */
+  highPerformance?: boolean
   photo?: string
   selfie?: string
   wikiUrl?: string
@@ -62,11 +64,15 @@ export type OrgProfile = {
   logo?: string
   sponsored?: SponsoredAthlete[]
   merch?: MerchItem[]
+  /** Challenges a sponsor proposes; athletes apply to them from Inicio. */
+  challenges?: OrgChallenge[]
   eventInfo?: { distance: string; place: string; requirements: string; signup: string; reach: string }
 }
 
 export type SponsoredAthlete = { key: string; name: string; discipline: string; image?: string; since: string }
 export type MerchItem = { name: string; price: string; image?: string }
+/** Same shape as the sample brands' challenges, so both use the same apply sheet. */
+export type OrgChallenge = { id: string; title: string; detail: string; reward: string; deadline: string }
 
 export type Account = {
   id: string

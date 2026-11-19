@@ -14,6 +14,22 @@ import { AiScout } from '@/components/org/ai-scout'
 import { PeopleSearch } from '@/components/org/people-search'
 import type { Viewer } from '@/components/app-shell'
 import { load } from '@/lib/load'
+import { ChallengesSection, ShopSection, SponsoredSheet } from '@/components/profile/sponsor-tools'
+import { FollowSheet } from '@/components/profile/follow-sheet'
+
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+/** "2027-03-15" → "15 de marzo de 2027"; anything else is shown as written. */
+function longDate(value: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  return m ? `${Number(m[3])} de ${MONTHS[Number(m[2]) - 1]} de ${m[1]}` : value
+}
+
+/** Short form for the stats row: "15 mar". Falls back to the text as written. */
+function shortDate(value: string) {
+  const m = /^(\d{1,2}) de ([a-záéíóú]+)/i.exec(longDate(value))
+  return m ? `${m[1]} ${m[2].slice(0, 3).toLowerCase()}` : value
+}
 
 export function OrgProfileView({ viewer }: { viewer: Viewer }) {
   const nav = useNav()
@@ -22,6 +38,8 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
   const [editing, setEditing] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [list, setList] = useState<'seguidores' | 'sponsoreados' | null>(null)
+  const { data: followers } = useSWR(['follow-list', 'me', 'seguidores'], () => load('getFollowList', 'me', 'seguidores'))
   const profile = viewer.account?.profile
   if (!profile || profile.kind === 'deportista') return null
 
@@ -36,22 +54,31 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
   }
 
   const isCompany = profile.kind === 'empresa'
-  const deals = matches?.filter((m) => m.dealStatus === 'aceptada').length ?? 0
+  const dealMatches = matches?.filter((m) => m.dealStatus === 'aceptada') ?? []
+  const deals = dealMatches.length
   const sponsored = profile.sponsored ?? []
   const merch = profile.merch ?? []
   const info = profile.eventInfo
 
-  const stats = isCompany
+  const followerCount = followers?.people.length ?? 0
+  // Each number opens its list: followers, the athletes it backs, the chats.
+  const stats: { label: string; value: number | string; onClick?: () => void }[] = isCompany
     ? [
-        { label: 'Sponsoreados', value: sponsored.length + deals },
-        { label: 'Matches', value: matches?.length ?? 0 },
-        { label: 'Productos', value: merch.length },
+        { label: 'Seguidores', value: followerCount, onClick: () => setList('seguidores') },
+        { label: 'Sponsoreados', value: sponsored.length + dealMatches.filter((d) => !sponsored.some((s) => s.key === d.other.key)).length, onClick: () => setList('sponsoreados') },
+        { label: 'Matches', value: matches?.length ?? 0, onClick: () => nav.goTo('mensajes') },
+        { label: 'Productos', value: merch.length, onClick: () => document.getElementById('merch-title')?.scrollIntoView({ behavior: 'smooth' }) },
       ]
     : [
-        { label: 'Invitados', value: matches?.length ?? 0 },
+        { label: 'Seguidores', value: followerCount, onClick: () => setList('seguidores') },
+        { label: 'Invitados', value: matches?.length ?? 0, onClick: () => nav.goTo('mensajes') },
         { label: 'Confirmados', value: deals },
-        { label: 'Fecha', value: profile.eventDate ?? '—' },
+        { label: 'Fecha', value: profile.eventDate ? shortDate(profile.eventDate) : '—' },
       ]
+  // Skip the city when the venue already names it ("Monumento a la Bandera, Rosario").
+  const venue = info?.place ?? ''
+  const cityPart = profile.city && venue.toLowerCase().includes(profile.city.toLowerCase()) ? '' : profile.city
+  const placeLine = [venue, [cityPart, profile.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto px-4 pb-28 pt-20 no-scrollbar">
@@ -66,13 +93,20 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
           <p className="text-sm text-muted-foreground">{profile.category}</p>
         </div>
         {profile.description ? <p className="text-pretty text-sm leading-relaxed">{profile.description}</p> : null}
-        <dl className="grid w-full grid-cols-3 gap-1 rounded-2xl bg-card p-3">
-          {stats.map((s) => (
-            <div key={s.label} className="flex flex-col items-center">
-              <dd className="font-display text-2xl font-semibold">{s.value}</dd>
-              <dt className="text-[11px] text-muted-foreground">{s.label}</dt>
-            </div>
-          ))}
+        <dl className="grid w-full grid-cols-4 gap-1 rounded-2xl bg-card p-2">
+          {stats.map((s) =>
+            s.onClick ? (
+              <button key={s.label} type="button" onClick={s.onClick} className="flex min-w-0 flex-col items-center rounded-xl py-1 transition-colors hover:bg-secondary">
+                <dd className="max-w-full truncate font-display text-2xl font-semibold">{s.value}</dd>
+                <dt className="text-[11px] text-muted-foreground">{s.label}</dt>
+              </button>
+            ) : (
+              <div key={s.label} className="flex min-w-0 flex-col items-center py-1">
+                <dd className="max-w-full truncate font-display text-2xl font-semibold">{s.value}</dd>
+                <dt className="text-[11px] text-muted-foreground">{s.label}</dt>
+              </div>
+            ),
+          )}
         </dl>
         <button type="button" onClick={() => setEditing(true)} className="flex w-full items-center justify-center gap-2 rounded-full bg-secondary py-2.5 text-sm font-bold">
           <Settings2 className="size-4" />
@@ -83,13 +117,12 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
       <ul className="flex flex-col gap-2 text-sm">
         <li className="flex items-center gap-3 rounded-xl bg-card p-3">
           <MapPin className="size-4 shrink-0 text-olympic-red" aria-hidden />
-          {info?.place ? `${info.place} · ` : ''}
-          {profile.city}, {profile.country}
+          {placeLine}
         </li>
         {profile.eventDate ? (
           <li className="flex items-center gap-3 rounded-xl bg-card p-3">
             <CalendarDays className="size-4 shrink-0 text-olympic-green" aria-hidden />
-            {profile.eventDate}
+            {longDate(profile.eventDate)}
           </li>
         ) : null}
         {info?.distance ? (
@@ -158,24 +191,9 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
         </section>
       ) : null}
 
-      {isCompany && merch.length ? (
-        <section aria-labelledby="merch-title" className="flex flex-col gap-3">
-          <h2 id="merch-title" className="font-display text-xl font-semibold">
-            Tienda
-          </h2>
-          <ul className="grid grid-cols-2 gap-3">
-            {merch.map((m) => (
-              <li key={m.name} className="flex flex-col gap-2 rounded-2xl bg-card p-2">
-                <img loading="lazy" decoding="async" src={m.image || '/placeholder.svg'} alt={m.name} className="aspect-square w-full rounded-xl object-cover" />
-                <div className="flex flex-col px-1 pb-1">
-                  <span className="text-sm font-semibold leading-tight">{m.name}</span>
-                  <span className="font-display text-lg font-semibold text-olympic-green">{m.price}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      {isCompany ? <ChallengesSection challenges={profile.challenges ?? []} /> : null}
+
+      {isCompany ? <ShopSection merch={merch} /> : null}
 
       {isCompany ? <AiScout lookingFor={profile.lookingFor} /> : null}
 
@@ -187,6 +205,8 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
           Match
         </button>
       </div>
+      {list === 'seguidores' ? <FollowSheet profileKey="me" name={profile.orgName} initialTab="seguidores" onClose={() => setList(null)} /> : null}
+      {list === 'sponsoreados' ? <SponsoredSheet sponsored={sponsored} deals={dealMatches} onClose={() => setList(null)} /> : null}
       {editing ? (
         <Sheet
           title="Editar perfil"

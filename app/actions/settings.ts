@@ -6,6 +6,8 @@ import { db } from '@/lib/db'
 import { comments, follows, matches, messages, posts, profiles, reactions, session, swipes, user } from '@/lib/db/schema'
 import { describeParties, requireViewer, type Party } from '@/lib/viewer'
 import { events, seedAthleteKey, seedDaily } from '@/lib/catalog'
+import { athletes, vitrinaPosts } from '@/lib/data'
+import type { AthleteProfile } from '@/lib/profile-types'
 import { DEFAULT_SETTINGS, mergeSettings, type Settings } from '@/lib/settings'
 import { SettingsUnavailableError, getSettings, saveSettings } from '@/lib/user-settings'
 import { completenessOf, profileChecklist } from '@/lib/profile-checklist'
@@ -124,8 +126,30 @@ async function describeTargets(rows: { targetId: string; createdAt: Date }[]): P
   const postBy = new Map(realPosts.map((p) => [`post:${p.id}`, p]))
   const parties = await describeParties([...athleteKeys, ...realPosts.map((p) => `user:${p.userId}`), ...seedDaily.map((s) => seedAthleteKey(s.athleteId))])
 
+  // Vitrina logros: the samples (vit:v1…) live in lib/data, real ones in each athlete's profile.
+  const logros = new Map<string, { title: string; subtitle: string; image?: string; authorKey: string }>()
+  for (const v of vitrinaPosts) {
+    const a = athletes[v.athleteId]
+    if (a) logros.set(`vit:${v.id}`, { title: 'title' in v ? v.title : `${v.metric}: ${v.current}`, subtitle: a.name, image: v.image, authorKey: seedAthleteKey(a.id) })
+  }
+  if (rows.some((r) => r.targetId.startsWith('vit:') && !logros.has(r.targetId))) {
+    const owners = await db.select({ userId: profiles.userId, data: profiles.data, name: user.name }).from(profiles).innerJoin(user, eq(user.id, profiles.userId)).where(eq(profiles.role, 'deportista')).limit(300)
+    for (const o of owners) {
+      const p = o.data as AthleteProfile
+      const name = `${p.firstName} ${p.lastName}`.trim() || o.name
+      for (const v of p.vitrina ?? []) {
+        logros.set(`vit:${v.id}`, { title: v.type === 'medalla' ? v.title : `${v.metric}: ${v.value}`, subtitle: name, image: v.image ?? p.photo, authorKey: `user:${o.userId}` })
+      }
+    }
+  }
+
   const out: TargetPreview[] = []
   for (const { targetId, createdAt } of rows) {
+    const logro = logros.get(targetId)
+    if (logro) {
+      out.push({ targetId, ...logro, kind: 'publicacion', at: createdAt.toISOString() })
+      continue
+    }
     const at = createdAt.toISOString()
     const real = postBy.get(targetId)
     if (real) {

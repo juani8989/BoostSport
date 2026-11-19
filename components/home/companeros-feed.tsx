@@ -118,21 +118,38 @@ export function CompanerosFeed() {
         >
           {cheerFor === post.id ? cheer : null}
           {heartFor === post.id ? hearts : null}
-          {post.image ? (
-            // Pinch or double tap to zoom; once zoomed, the button to zoom back out shows up.
-            <>
-              {/* Wide screens: the photo shows whole, with a blurred copy filling the sides. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img aria-hidden src={post.image} alt="" loading={index > 1 ? 'lazy' : 'eager'} className="absolute inset-0 hidden size-full scale-110 object-cover opacity-60 blur-2xl md:block" />
-              <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={index <= 1} className="object-cover md:object-contain" hideButton />
-            </>
-          ) : (
-            <div aria-hidden className={cn('absolute inset-0 opacity-30', kindMeta[post.kind].className)} />
-          )}
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/50 to-background/20" />
+          {/* Phones: the photo fills the screen with the text over it. Computers get the card below instead. */}
+          <div className="absolute inset-0 md:hidden">
+            {post.image ? (
+              // Pinch or double tap to zoom; once zoomed, the button to zoom back out shows up.
+              <ZoomableImage src={post.image} alt={post.body.slice(0, 80)} eager={index <= 1} className="object-cover" hideButton />
+            ) : (
+              <div aria-hidden className={cn('absolute inset-0 opacity-30', kindMeta[post.kind].className)} />
+            )}
+            <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/50 to-background/20" />
+          </div>
+
+          <DesktopCard
+            post={post}
+            eager={index <= 1}
+            supportedLabel={
+              post.boostedBy || post.supported
+                ? post.supported && (!post.boostedBy || post.boostedBy.key === `user:${nav.account?.id}`)
+                  ? 'Lo apoyaste'
+                  : `Apoyado por ${post.boostedBy!.name}${post.boostedBy!.others > 0 ? ` y ${post.boostedBy!.others} más` : ''}`
+                : null
+            }
+            hideCounts={hideCounts && !post.mine}
+            onProfile={() => nav.openProfile(post.author.key)}
+            onReact={(kind) => react(post, kind)}
+            onComments={() => setCommentsFor(post)}
+            onSave={() => save(post)}
+            onShare={() => share(post)}
+            onMenu={() => (post.mine || nav.requireAccount() ? setMenuFor(post) : null)}
+          />
 
           {/* The text layer lets touches through to the photo (for zoom) except on its own controls. */}
-          <div className="pointer-events-none relative flex h-full items-end gap-3 px-4 pb-24 pt-36 md:px-8 md:pb-24">
+          <div className="pointer-events-none relative flex h-full items-end gap-3 px-4 pb-24 pt-36 md:hidden">
             <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-3 md:max-w-md">
               {post.boostedBy || post.supported ? (
                 <p className="flex items-center gap-1.5 self-start rounded-full bg-olympic-yellow/90 px-2.5 py-1 text-[11px] font-bold text-olympic-black">
@@ -155,7 +172,7 @@ export function CompanerosFeed() {
               <p className={cn('text-pretty leading-relaxed', post.image ? 'text-sm' : 'font-display text-2xl font-semibold leading-snug')}>{post.body}</p>
             </div>
 
-            <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-4 md:absolute md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:flex-row md:gap-1 md:rounded-full md:bg-background/80 md:px-3 md:py-1.5 md:shadow-xl">
+            <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-4">
               <RailButton label="Me gusta" count={hideCounts && !post.mine ? undefined : post.likes} active={post.liked} activeClass="text-olympic-red" variant="pop" onClick={() => react(post, 'like')}>
                 <Heart className={cn('size-6', post.liked && 'fill-current')} />
               </RailButton>
@@ -214,6 +231,113 @@ export function CompanerosFeed() {
         />
       ) : null}
     </>
+  )
+}
+
+/**
+ * Computers only: the post as an Instagram-style card in a centered column — who posted it
+ * on top, the photo whole, then the actions and the text — on the page's plain background.
+ */
+function DesktopCard({
+  post,
+  eager,
+  supportedLabel,
+  hideCounts,
+  onProfile,
+  onReact,
+  onComments,
+  onSave,
+  onShare,
+  onMenu,
+}: {
+  post: FeedPost
+  eager: boolean
+  supportedLabel: string | null
+  hideCounts: boolean
+  onProfile: () => void
+  onReact: (kind: 'like' | 'apoyo') => void
+  onComments: () => void
+  onSave: () => void
+  onShare: () => void
+  onMenu: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const long = post.body.length > 140
+  return (
+    <div className="hidden h-full justify-center px-6 pb-6 pt-[8.75rem] md:flex">
+      <div className="flex h-full w-full max-w-[470px] flex-col">
+        {supportedLabel ? (
+          <p className="mb-2 flex items-center gap-1.5 self-start text-xs font-semibold text-olympic-yellow">
+            <HandHeart className="size-3.5" />
+            {supportedLabel}
+          </p>
+        ) : null}
+        <div className="flex items-center gap-2 pb-3">
+          <button type="button" onClick={onProfile} className="flex min-w-0 items-center gap-2.5 text-left">
+            <PartyAvatar party={post.author} className="size-9" />
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-sm font-semibold">
+                {post.author.name} <span className="font-normal text-muted-foreground">· {timeAgo(post.createdAt)}</span>
+              </span>
+              <span className="truncate text-xs text-muted-foreground">{post.author.subtitle}</span>
+            </span>
+          </button>
+          <span className={cn('ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide', kindMeta[post.kind].className)}>{kindMeta[post.kind].label}</span>
+          <button type="button" onClick={onMenu} aria-label={post.mine ? 'Opciones de tu publicación' : 'Reportar'} className="flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-secondary">
+            {post.mine ? <MoreHorizontal className="size-5" /> : <Flag className="size-4 fill-olympic-red text-olympic-red" />}
+          </button>
+        </div>
+
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border border-border bg-black">
+          {post.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={post.image} alt={post.body.slice(0, 80)} loading={eager ? 'eager' : 'lazy'} decoding="async" className="absolute inset-0 size-full object-contain" />
+          ) : (
+            <div className={cn('flex size-full items-center justify-center p-8', kindMeta[post.kind].className)}>
+              <p className="line-clamp-[10] text-center font-display text-2xl font-semibold leading-snug">{post.body}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="-ml-2 flex items-center pt-2">
+          <RailButton label="Me gusta" count={hideCounts ? undefined : post.likes} active={post.liked} activeClass="text-olympic-red" variant="pop" onClick={() => onReact('like')}>
+            <Heart className={cn('size-6', post.liked && 'fill-current')} />
+          </RailButton>
+          <RailButton label="Apoyar" count={hideCounts ? undefined : post.apoyos} active={post.supported} activeClass="text-olympic-yellow" variant="pop" onClick={() => onReact('apoyo')}>
+            <HandHeart className={cn('size-6', post.supported && 'fill-current')} />
+          </RailButton>
+          <RailButton label="Comentarios" count={post.comments} variant="tap" onClick={onComments}>
+            <MessageCircle className="size-6" />
+          </RailButton>
+          <RailButton label="Compartir" variant="fly" onClick={onShare}>
+            <Share2 className="size-6" />
+          </RailButton>
+          <span className="flex-1" />
+          <RailButton label={post.saved ? 'Quitar de guardados' : 'Guardar'} active={post.saved} activeClass="text-olympic-yellow" variant="drop" onClick={onSave}>
+            <Bookmark className={cn('size-6', post.saved && 'fill-current')} />
+          </RailButton>
+        </div>
+
+        {post.image ? (
+          <p className={cn('text-pretty pt-1 text-sm leading-relaxed', !expanded && 'line-clamp-2')}>
+            <button type="button" onClick={onProfile} className="mr-1.5 font-semibold">
+              {post.author.name}
+            </button>
+            {post.body}
+          </p>
+        ) : null}
+        {post.image && long ? (
+          <button type="button" onClick={() => setExpanded((e) => !e)} className="self-start text-sm text-muted-foreground hover:text-foreground">
+            {expanded ? 'ver menos' : 'más'}
+          </button>
+        ) : null}
+        {post.comments ? (
+          <button type="button" onClick={onComments} className="self-start pt-1 text-sm text-muted-foreground hover:text-foreground">
+            {post.comments === 1 ? 'Ver el comentario' : `Ver los ${post.comments} comentarios`}
+          </button>
+        ) : null}
+      </div>
+    </div>
   )
 }
 
@@ -276,6 +400,11 @@ export function CommentsSheet({ post, onClose, onAdded }: { post: Pick<FeedPost,
   return (
     <Sheet title="Comentarios" onClose={onClose} tall>
       <ul className="flex flex-1 flex-col gap-4">
+        {!data ? (
+          <li className="flex justify-center py-4">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Cargando comentarios" />
+          </li>
+        ) : null}
         {data?.length === 0 ? <li className="text-sm text-muted-foreground">Sé el primero en comentar.</li> : null}
         {data?.map((c) => (
           <li key={c.id} className="flex flex-col gap-0.5">
