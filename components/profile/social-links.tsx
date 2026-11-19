@@ -54,7 +54,7 @@ function handleOf(network: Network, raw: string) {
  * The social accounts the person added to their profile, each one linking to it. The follower
  * count will appear here once the account is connected for real (not just typed in).
  */
-export function SocialLinks({ socials, className }: { socials?: Partial<Record<Network, string>>; className?: string }) {
+export function SocialLinks({ socials, followers, className }: { socials?: Partial<Record<Network, string>>; followers?: Partial<Record<Network, number>>; className?: string }) {
   const items = (Object.keys(meta) as Network[])
     .map((network) => ({ network, handle: handleOf(network, socials?.[network] ?? '') }))
     .filter((x): x is { network: Network; handle: string } => !!x.handle)
@@ -62,18 +62,31 @@ export function SocialLinks({ socials, className }: { socials?: Partial<Record<N
   return (
     <ul aria-label="Redes sociales" className={cn('flex flex-wrap gap-1.5', className)}>
       {items.map(({ network, handle }) => (
-        <li key={network}>
+        <li key={network} className="group relative">
           <a
             href={meta[network].url(handle)}
             target="_blank"
             rel="noopener noreferrer"
-            title={`${meta[network].label} de ${handle}`}
             className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-secondary"
           >
             <Logo network={network} className={meta[network].className} />
             <span className="sr-only">{meta[network].label}: </span>
             {handle}
           </a>
+          {/* On hover or focus: the account and its followers (once the account is connected). */}
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-max max-w-56 -translate-x-1/2 flex-col gap-0.5 rounded-xl border border-border bg-card px-3 py-2 text-left text-xs shadow-xl group-hover:flex group-focus-within:flex"
+          >
+            <span className="font-bold">
+              {meta[network].label} · {handle}
+            </span>
+            {typeof followers?.[network] === 'number' ? (
+              <span>{new Intl.NumberFormat('es-AR').format(followers[network]!)} seguidores</span>
+            ) : (
+              <span className="text-muted-foreground">Los seguidores se ven cuando la cuenta está vinculada.</span>
+            )}
+          </span>
         </li>
       ))}
     </ul>
