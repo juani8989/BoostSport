@@ -338,32 +338,52 @@ export function affinityScore(input: { discipline: string; needs: string[] }, co
 
 /** Sports that belong to a family, so "deportes de combate" or "running" in a profile counts for each of them. */
 const FAMILIES: { words: string[]; sports: string[] }[] = [
-  { words: ['combate', 'artes marciales', 'pelea', 'peleador'], sports: ['boxeo', 'judo', 'karate', 'taekwondo', 'kickboxing', 'mma', 'lucha', 'jiu', 'muay', 'esgrima'] },
-  { words: ['running', 'carrera', 'maraton', 'atletismo', 'trail'], sports: ['atletismo', 'maraton', 'running', 'trail', 'triatlon', 'fondo', 'velocidad', '100 m', '400 m'] },
-  { words: ['acuatico', 'natacion', 'agua'], sports: ['natacion', 'waterpolo', 'surf', 'remo', 'kayak', 'triatlon'] },
-  { words: ['ciclismo', 'bici', 'ruta'], sports: ['ciclismo', 'mtb', 'bmx', 'triatlon'] },
+  { words: ['combate', 'artes marciales', 'pelea', 'peleador', 'contacto'], sports: ['boxeo', 'judo', 'karate', 'taekwondo', 'kickboxing', 'mma', 'lucha', 'jiu jitsu', 'muay thai', 'esgrima'] },
+  { words: ['running', 'carrera de calle', 'corredor', 'maraton', 'atletismo', 'trail', 'fondo', '10k', '21k', '42k'], sports: ['atletismo', 'maraton', 'running', 'trail', 'triatlon', 'fondo', 'velocidad', '100 m', '400 m', '800 m'] },
+  { words: ['acuatico', 'natacion', 'nadador', 'pileta'], sports: ['natacion', 'waterpolo', 'surf', 'remo', 'kayak', 'triatlon'] },
+  { words: ['ciclismo', 'ciclista', 'bicicleta', 'mtb'], sports: ['ciclismo', 'mtb', 'bmx', 'triatlon'] },
 ]
 
 const NEED_WORDS: Record<string, string[]> = {
-  Indumentaria: ['indumentaria', 'ropa', 'kimono', 'camiseta', 'zapatilla'],
-  Equipamiento: ['equipamiento', 'guante', 'protector', 'cabezal', 'equipo'],
+  Indumentaria: ['indumentaria', 'ropa', 'kimono', 'camiseta', 'zapatilla', 'calzado'],
+  Equipamiento: ['equipamiento', 'guante', 'protector', 'protección', 'cabezal', 'raqueta', 'tabla'],
   Viajes: ['viaje', 'pasaje', 'traslado'],
   Dinero: ['dinero', 'beca', 'pago', 'premio'],
   Nutrición: ['nutricion', 'hidratacion', 'suplemento'],
   Visibilidad: ['visibilidad', 'difusion', 'embajador', 'representar'],
 }
 
+/** Rough Spanish stem, so plurals and feminine forms count: acuáticas → acuatic, guantes → guant. */
+const stem = (word: string) => word.replace(/(es|s)$/, '').replace(/[aoe]$/, '')
+
+/** The text as a list of word stems (accents and punctuation out). */
+const wordsOf = (text: string) =>
+  normalize(text)
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .map(stem)
+
+/** Whether a term (one or more words) appears as whole words, in order: "remo" doesn't match "extremos". */
+function hasTerm(words: string[], term: string) {
+  const t = wordsOf(term)
+  if (!t.length) return false
+  for (let i = 0; i + t.length <= words.length; i++) if (t.every((w, j) => words[i + j] === w)) return true
+  return false
+}
+
 /**
  * Affinity between an athlete and a real sponsor or institution, read from what the
- * organization wrote in its profile (category, what it looks for, description).
+ * organization wrote in its profile (category, what it looks for, description). Compares
+ * whole words, so "carrera profesional" or "Agua Pura" don't count as running or swimming.
  */
 export function orgAffinity(input: { discipline: string; needs: string[] }, org: { category?: string; lookingFor?: string; description?: string; orgName?: string }) {
-  const text = normalize([org.orgName, org.category, org.lookingFor, org.description].filter(Boolean).join(' '))
-  const discipline = normalize(input.discipline)
-  const firstWord = discipline.split(/[\s·,]+/).find((w) => w.length >= 4) ?? ''
-  const direct = !!firstWord && text.includes(firstWord)
-  const family = FAMILIES.some((f) => f.words.some((w) => text.includes(w)) && f.sports.some((sp) => discipline.includes(sp)))
-  const overlap = input.needs.filter((n) => (NEED_WORDS[n] ?? [normalize(n)]).some((w) => text.includes(w))).length
+  const words = wordsOf([org.orgName, org.category, org.lookingFor, org.description].filter(Boolean).join(' '))
+  // The sport is the first word of the discipline ("Boxeo · 57 kg", "Ciclismo de ruta", "MMA").
+  const sport = normalize(input.discipline).split(/[^a-z0-9]+/).find((w) => w.length >= 3) ?? ''
+  const direct = !!sport && hasTerm(words, sport)
+  const disciplineWords = wordsOf(input.discipline)
+  const family = FAMILIES.some((f) => f.words.some((w) => hasTerm(words, w)) && f.sports.some((sp) => hasTerm(disciplineWords, sp)))
+  const overlap = input.needs.filter((n) => (NEED_WORDS[n] ?? [n]).some((w) => hasTerm(words, w))).length
   return Math.min(98, 45 + (direct ? 35 : family ? 28 : 0) + overlap * 5)
 }
 

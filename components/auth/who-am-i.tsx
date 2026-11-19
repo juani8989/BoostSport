@@ -149,7 +149,7 @@ export function WhoAmI() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-contorno.svg" alt="BoostSport" width={480} height={140} className="h-24 w-auto md:h-32" />
         <div className="flex flex-col items-center gap-1">
-          <p className="eyebrow text-xs text-olympic-white/60">El marketplace del deporte</p>
+          <p className="eyebrow text-xs text-olympic-white/60">Mostrá quién sos, obtené lo que merecés</p>
           <h1 className="text-4xl font-semibold leading-tight md:text-5xl">{'¿Quién sos?'}</h1>
         </div>
       </header>

@@ -134,6 +134,8 @@ export type SearchExplore = {
   popular: (SearchPost & { likes: number; apoyos: number })[]
   /** Short searches worth trying (sports, torneos, places). */
   recommended: string[]
+  /** Posts with a photo for the explore grid, most popular first. */
+  grid: SearchPost[]
 }
 
 /** What the search screen shows before typing. */
@@ -166,5 +168,11 @@ export async function getSearchExplore(): Promise<SearchExplore> {
   const torneos = events.filter((e) => e.kind === 'Torneo' || e.registrationOpen).map((e) => e.name)
   const recommended = [...new Set([...torneos.slice(0, 3), ...sports.slice(0, 5)])].slice(0, 8)
 
-  return { suggested: suggested.slice(0, 6), popular, recommended }
+  const grid = [...feed]
+    .filter((p) => p.image)
+    .sort((a, b) => b.likes + b.apoyos * 3 - (a.likes + a.apoyos * 3))
+    .slice(0, 30)
+    .map((p) => ({ id: p.id, ownerKey: p.author.key, author: p.author.name, text: p.body, image: p.image, label: 'Compañeros' }))
+
+  return { suggested: suggested.slice(0, 6), popular, recommended, grid }
 }

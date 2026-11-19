@@ -2,8 +2,9 @@ import 'server-only'
 
 import { getComments, getCompanerosFeed, getEventsState } from '@/app/actions/social'
 import { getDeck, getMatches, getThread } from '@/app/actions/match'
+import { getContacts, searchMessages } from '@/app/actions/chat'
 import { listBrands, searchPeople } from '@/app/actions/org'
-import { getAthleteMentions, getAthleteProfile } from '@/app/actions/athlete'
+import { getAthleteMentions, getAthleteProfile, getFollowList } from '@/app/actions/athlete'
 import { getProfilePosts, getReactors } from '@/app/actions/posts'
 import { getKnownPeople, getMyActivity, getMyDeals, getMyPosts, getMySessions, getMySettings, getMyStats, getPeople, getSaveFolders, getSaved } from '@/app/actions/settings'
 import { getAdminOverview, getAdminUser, listAdminUsers } from '@/app/actions/admin'
@@ -24,8 +25,10 @@ export const dataFns = {
   getAthleteProfile,
   getComments,
   getCompanerosFeed,
+  getContacts,
   getDeck,
   getEventsState,
+  getFollowList,
   getKnownPeople,
   getMatches,
   getMyActivity,
@@ -48,6 +51,7 @@ export const dataFns = {
   listAdminUsers,
   listBrands,
   searchEverything,
+  searchMessages,
   searchPeople,
 }
 

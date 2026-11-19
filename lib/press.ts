@@ -4,7 +4,7 @@ import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
 import type { PressKind, PressLink } from '@/lib/profile-types'
 
-const UA = 'Mozilla/5.0 (compatible; BoostSportBot/1.0; +https://marketplace-de-deportistas.vercel.app)'
+const UA = 'Mozilla/5.0 (compatible; BoostSportBot/1.0; +https://boostsports.vercel.app)'
 
 const decode = (s: string) =>
   s

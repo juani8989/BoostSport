@@ -15,7 +15,7 @@ export function EventAthletesFeed() {
 
   return (
     <section aria-label="Deportistas para invitar" className="flex flex-col gap-4">
-      <SearchBox value={query} onChange={setQuery} label="Buscar deportistas por disciplina, nombre o ciudad" />
+      <SearchBox value={query} onChange={setQuery} label="Buscar por deporte, nombre o ciudad" />
       {isLoading && !data ? <p className="text-sm text-muted-foreground">Cargando deportistas…</p> : null}
       {data && !data.length ? <p className="text-sm text-muted-foreground">No encontramos deportistas con esa búsqueda.</p> : null}
       <ul className="flex flex-col gap-3">

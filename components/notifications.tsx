@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { ArrowLeft, BadgeCheck, BadgeDollarSign, Bell, Gift, HandHeart, Handshake, Heart, Loader2, MessageCircle, Repeat2, Sparkles, UserPlus, X, XCircle } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, BadgeDollarSign, Bell, BriefcaseBusiness, Gift, HandHeart, Handshake, Heart, Loader2, MessageCircle, Repeat2, Sparkles, UserPlus, X, XCircle } from 'lucide-react'
 import { useAppStore } from '@/components/app-store'
 import { useNav } from '@/components/app/nav'
 import { PartyAvatar, timeAgo } from '@/components/app/kit'
@@ -47,7 +47,7 @@ type Filter = 'todas' | 'interacciones' | 'seguidores' | 'chats'
 
 const FILTERS: { id: Filter; label: string; types: NotificationType[] }[] = [
   { id: 'todas', label: 'Todas', types: [] },
-  { id: 'interacciones', label: 'Interacciones', types: ['like', 'apoyo', 'repost', 'donar', 'comentario', 'apoyo-perfil'] },
+  { id: 'interacciones', label: 'Interacciones', types: ['like', 'apoyo', 'repost', 'donar', 'aplauso', 'comentario', 'apoyo-perfil', 'recomendacion'] },
   { id: 'seguidores', label: 'Seguidores', types: ['seguidor', 'interes'] },
   { id: 'chats', label: 'Matches y propuestas', types: ['match', 'mensaje', 'propuesta', 'propuesta-aceptada', 'propuesta-rechazada'] },
 ]
@@ -58,6 +58,8 @@ const ICON: Record<NotificationType, { icon: typeof Heart; className: string }> 
   'apoyo-perfil': { icon: HandHeart, className: 'bg-olympic-yellow text-olympic-black' },
   repost: { icon: Repeat2, className: 'bg-olympic-green text-olympic-white' },
   donar: { icon: Gift, className: 'bg-olympic-green text-olympic-white' },
+  aplauso: { icon: HandHeart, className: 'bg-olympic-yellow text-olympic-black' },
+  recomendacion: { icon: BriefcaseBusiness, className: 'bg-olympic-blue text-olympic-white' },
   comentario: { icon: MessageCircle, className: 'bg-olympic-blue text-olympic-white' },
   seguidor: { icon: UserPlus, className: 'bg-olympic-blue text-olympic-white' },
   interes: { icon: Sparkles, className: 'bg-olympic-yellow text-olympic-black' },

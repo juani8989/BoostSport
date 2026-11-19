@@ -1,15 +1,16 @@
 'use server'
 
-import { and, eq } from 'drizzle-orm'
+import { and, count, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { profiles, user } from '@/lib/db/schema'
+import { profiles, reactions, user } from '@/lib/db/schema'
 import { getViewer, requireViewer, userKey } from '@/lib/viewer'
 import { athletes, vitrinaPosts, type VitrinaPost } from '@/lib/data'
-import { seedAthleteKey } from '@/lib/catalog'
+import { orgAffinity, seedAthleteFromKey, seedAthleteKey } from '@/lib/catalog'
 import { isBlobUrl } from '@/lib/blob-url'
 import { completenessOf, profileChecklist } from '@/lib/profile-checklist'
 import { getSettingsMap } from '@/lib/user-settings'
-import type { AthleteProfile, VitrinaItem } from '@/lib/profile-types'
+import type { AthleteProfile, OrgProfile, VitrinaItem } from '@/lib/profile-types'
+import { toggleReaction } from '@/app/actions/social'
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 
@@ -27,7 +28,26 @@ export type VitrinaAthlete = {
 }
 
 type Card<T> = T extends unknown ? Omit<T, 'athleteId'> : never
-export type VitrinaCard = Card<VitrinaPost> & { athlete: VitrinaAthlete; real: boolean; createdAt?: string }
+type CardBase = {
+  athlete: VitrinaAthlete
+  real: boolean
+  createdAt?: string
+}
+
+export type VitrinaCard = Card<VitrinaPost> &
+  CardBase & {
+    /** Applause count and what the viewer already did on this card. */
+    applause: number
+    applauded: boolean
+    saved: boolean
+    /** Whether the viewer already recommended this athlete to brands. */
+    recommended: boolean
+  }
+
+type BaseCard = Card<VitrinaPost> & CardBase & { baseApplause?: number }
+
+/** Sample cards keep their demo applause on top of the real one. */
+const SAMPLE_APPLAUSE: Record<VitrinaPost['type'], number> = { achievement: 5120, stats: 980, secret: 1430 }
 
 const MAX_ITEMS = 30
 const MAX_IMAGE_CHARS = 1_400_000
@@ -99,14 +119,17 @@ export async function removeVitrinaItem(id: string): Promise<Result> {
   return { ok: true }
 }
 
-function seedCards(): VitrinaCard[] {
+function seedCards(): BaseCard[] {
   return vitrinaPosts.map(({ athleteId, ...post }) => {
     const a = athletes[athleteId]
     return {
       ...post,
+      // The card id is also the reaction target: vit:v1, vit:v2…
+      id: `vit:${post.id}`,
+      baseApplause: SAMPLE_APPLAUSE[post.type],
       real: false,
       athlete: { key: seedAthleteKey(a.id), name: a.name, image: a.image, sport: a.sport, city: a.city, category: a.category, verified: a.level === 'Pro', sponsorReady: a.sponsorReady, sponsoredBy: a.sponsoredBy },
-    } as VitrinaCard
+    } as BaseCard
   })
 }
 
@@ -125,7 +148,7 @@ export async function getVitrinaFeed(): Promise<VitrinaCard[]> {
   const settings = await getSettingsMap([...withItems.map((r) => r.userId), ...(viewer ? [viewer.id] : [])])
   const blockedByMe = new Set(viewer ? settings.get(viewer.id)?.blocked ?? [] : [])
 
-  const real: VitrinaCard[] = []
+  const real: BaseCard[] = []
   for (const r of withItems) {
     const key = userKey(r.userId)
     if (blockedByMe.has(key)) continue
@@ -163,5 +186,74 @@ export async function getVitrinaFeed(): Promise<VitrinaCard[]> {
     }
   }
   real.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-  return [...real, ...seedCards()]
+  const cards = [...real, ...seedCards()]
+
+  // Real applause, and what the viewer already applauded, saved or recommended.
+  const ids = cards.map((c) => c.id)
+  const athleteTargets = [...new Set(cards.map((c) => `athlete:${c.athlete.key}`))]
+  const [totals, mine] = await Promise.all([
+    db
+      .select({ targetId: reactions.targetId, n: count() })
+      .from(reactions)
+      .where(and(inArray(reactions.targetId, ids), eq(reactions.kind, 'aplauso')))
+      .groupBy(reactions.targetId),
+    viewer
+      ? db
+          .select({ targetId: reactions.targetId, kind: reactions.kind })
+          .from(reactions)
+          .where(and(eq(reactions.userId, viewer.id), inArray(reactions.targetId, [...ids, ...athleteTargets]), inArray(reactions.kind, ['aplauso', 'guardado', 'recomendar'])))
+      : Promise.resolve([]),
+  ])
+  const applauseBy = new Map(totals.map((t) => [t.targetId, Number(t.n)]))
+  const did = new Set(mine.map((m) => `${m.targetId}|${m.kind}`))
+  return cards.map(({ baseApplause, ...c }) => ({
+    ...c,
+    applause: (baseApplause ?? 0) + (applauseBy.get(c.id) ?? 0),
+    applauded: did.has(`${c.id}|aplauso`),
+    saved: did.has(`${c.id}|guardado`),
+    recommended: did.has(`athlete:${c.athlete.key}|recomendar`),
+  })) as VitrinaCard[]
+}
+
+/** Brands whose profile fits a discipline well enough to hear about an athlete (same bar as Match). */
+const RECOMMEND_MIN_AFFINITY = 60
+
+async function brandsFor(discipline: string, needs: string[]) {
+  const rows = await db.select({ data: profiles.data }).from(profiles).where(eq(profiles.role, 'empresa')).limit(300)
+  return rows.filter((r) => orgAffinity({ discipline, needs }, r.data as OrgProfile) >= RECOMMEND_MIN_AFFINITY).length
+}
+
+/**
+ * "Marca" in the Vitrina: recommends an athlete to the brands that fit their sport. Each of those
+ * brands gets a notification (see getMyNotifications), and so does the athlete. Tapping again
+ * takes the recommendation back.
+ */
+export async function recommendAthlete(athleteKey: string): Promise<Result<{ on: boolean; brands: number }>> {
+  const viewer = await requireViewer()
+  const key = String(athleteKey ?? '')
+  if (!/^(user:[\w-]+|seed:at-[a-z]+)$/.test(key)) return { ok: false, error: 'Deportista inválido.' }
+  if (key === viewer.key) return { ok: false, error: 'No podés recomendarte a vos mismo.' }
+
+  let discipline = ''
+  let needs: string[] = []
+  const seed = seedAthleteFromKey(key)
+  if (seed) {
+    discipline = seed.sport
+    needs = ['Indumentaria', 'Viajes']
+  } else {
+    const [row] = await db.select({ data: profiles.data }).from(profiles).where(and(eq(profiles.userId, key.slice(5)), eq(profiles.role, 'deportista'))).limit(1)
+    if (!row) return { ok: false, error: 'No encontramos a ese deportista.' }
+    const p = row.data as AthleteProfile
+    discipline = p.discipline ?? ''
+    needs = p.needs ?? []
+  }
+
+  const res = await toggleReaction(`athlete:${key}`, 'recomendar')
+  if (!res.ok) return res
+  const [still] = await db
+    .select({ t: reactions.targetId })
+    .from(reactions)
+    .where(and(eq(reactions.userId, viewer.id), eq(reactions.targetId, `athlete:${key}`), eq(reactions.kind, 'recomendar')))
+    .limit(1)
+  return { ok: true, on: !!still, brands: still ? await brandsFor(discipline, needs) : 0 }
 }

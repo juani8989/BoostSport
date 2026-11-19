@@ -58,8 +58,17 @@ export function ImageInput({ label, value, onChange, round }: { label: string; v
   )
 }
 
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+/** The date input only takes "2027-03-15"; older profiles say "15 de marzo de 2027". */
+function toIsoDate(value?: string) {
+  const m = /^(\d{1,2}) de ([a-z]+) de (\d{4})$/i.exec((value ?? '').trim())
+  const month = m ? MONTHS.indexOf(m[2].toLowerCase()) + 1 : 0
+  return m && month ? `${m[3]}-${String(month).padStart(2, '0')}-${m[1].padStart(2, '0')}` : value
+}
+
 export function OrgProfileForm({ initial, pending, error, onSubmit, formId, hideSubmit }: { initial: OrgProfile; pending: boolean; error: string | null; onSubmit: (p: OrgProfile) => void; formId?: string; hideSubmit?: boolean }) {
-  const [p, setP] = useState(initial)
+  const [p, setP] = useState(() => (initial.eventDate ? { ...initial, eventDate: toIsoDate(initial.eventDate) } : initial))
   const isEvent = p.kind === 'evento'
   const info = p.eventInfo ?? { distance: '', place: '', requirements: '', signup: '', reach: '' }
   const set = <K extends keyof OrgProfile>(key: K, value: OrgProfile[K]) => setP((prev) => ({ ...prev, [key]: value }))

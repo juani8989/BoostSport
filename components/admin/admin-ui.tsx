@@ -129,13 +129,19 @@ export function IconButton({ label, tone, className, children, ...props }: { lab
   )
 }
 
-export function Avatar({ name, image, role, className }: { name: string; image?: string | null; role: Role | null; className?: string }) {
-  const initials = name
+/** Same initials everywhere in the panel: first letter of the first two words. */
+export const initialsOf = (name: string) =>
+  name
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase())
     .join('')
+
+export function Avatar({ name, image, role, className }: { name: string; image?: string | null; role: Role | null; className?: string }) {
+  const initials = initialsOf(name)
+  // A logo whose file no longer exists falls back to the initials instead of a broken image.
+  const [failed, setFailed] = useState<string | null>(null)
   return (
     <span
       className={cn(
@@ -144,9 +150,9 @@ export function Avatar({ name, image, role, className }: { name: string; image?:
         className,
       )}
     >
-      {image ? (
+      {image && failed !== image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img loading="lazy" decoding="async" src={image} alt="" className="absolute inset-0 size-full object-cover" />
+        <img loading="lazy" decoding="async" src={image} alt="" onError={() => setFailed(image)} className="absolute inset-0 size-full object-cover" />
       ) : (
         <span aria-hidden>{initials || '?'}</span>
       )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import useSWR, { preload } from 'swr'
-import { ArrowRight, Building2, Eye, Handshake, LayoutDashboard, LogOut, Menu, MessageCircle, MessagesSquare, Newspaper, ShieldAlert, Trophy, UserRound, UserRoundX, Users, X } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Building2, Eye, Handshake, LayoutDashboard, LogOut, Menu, MessageCircle, MessagesSquare, Newspaper, ShieldAlert, Trophy, UserRound, UserRoundX, Users, X } from 'lucide-react'
 import { adminTestEmail, getAdminOverview, listAdminUsers } from '@/app/actions/admin'
 import { signOut } from '@/lib/auth-store'
 import type { Role } from '@/lib/profile-types'
@@ -10,15 +10,18 @@ import { BrandLine, BrandWordmark } from '@/components/brand-logo'
 import { AdminFeedbackProvider, Avatar, Button, RoleBadge, Section, formatDate, roleMeta, useAdminFeedback } from '@/components/admin/admin-ui'
 import { AdminUserList, prefetchAdminUser } from '@/components/admin/admin-user-list'
 import { AdminUserDetail } from '@/components/admin/admin-user-detail'
+import { IdentityReviews } from '@/components/admin/identity-reviews'
+import { countPendingIdentities } from '@/app/actions/identity'
 import { cn } from '@/lib/utils'
 import { load } from '@/lib/load'
 
-export type AdminSection = 'resumen' | Role | 'sin-perfil'
+export type AdminSection = 'resumen' | 'verificaciones' | Role | 'sin-perfil'
 
 const roleIcon: Record<Role, typeof Trophy> = { deportista: Trophy, empresa: Building2, evento: Users }
 
 const navItems: { id: AdminSection; label: string; icon: typeof Trophy }[] = [
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
+  { id: 'verificaciones', label: 'Verificaciones', icon: BadgeCheck },
   { id: 'deportista', label: 'Deportistas', icon: Trophy },
   { id: 'empresa', label: 'Sponsors', icon: Building2 },
   { id: 'evento', label: 'Instituciones', icon: Users },
@@ -30,6 +33,7 @@ export function AdminPanel({ admin }: { admin: { id: string; name: string; email
   const [openUser, setOpenUser] = useState<{ id: string; tab?: 'perfil' | 'editar' } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const { data: overview } = useSWR('admin:overview', () => load('getAdminOverview'))
+  const { data: pendingIds } = useSWR('admin:identity-count', () => countPendingIdentities(), { refreshInterval: 60_000 })
 
   useEffect(() => {
     // Load every category list in the background so opening one is instant.
@@ -45,7 +49,7 @@ export function AdminPanel({ admin }: { admin: { id: string; name: string; email
   }
 
   const countFor = (id: AdminSection) =>
-    !overview ? undefined : id === 'resumen' ? undefined : id === 'sin-perfil' ? overview.withoutProfile : overview.counts[id]
+    id === 'verificaciones' ? pendingIds : !overview ? undefined : id === 'resumen' ? undefined : id === 'sin-perfil' ? overview.withoutProfile : overview.counts[id]
 
   return (
     <AdminFeedbackProvider>
@@ -80,7 +84,7 @@ export function AdminPanel({ admin }: { admin: { id: string; name: string; email
                     active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
                   )}
                 >
-                  <Icon className={cn('size-4', id !== 'resumen' && id !== 'sin-perfil' && roleMeta[id].text)} />
+                  <Icon className={cn('size-4', id === 'verificaciones' ? 'text-olympic-blue' : id !== 'resumen' && id !== 'sin-perfil' && roleMeta[id].text)} />
                   <span className="flex-1 text-left">{label}</span>
                   {n !== undefined ? <span className="rounded-full bg-background px-2 py-0.5 text-xs tabular-nums">{n}</span> : null}
                 </button>
@@ -120,6 +124,8 @@ export function AdminPanel({ admin }: { admin: { id: string; name: string; email
           <main className="px-4 py-6 sm:px-8">
             {section === 'resumen' ? (
               <Overview onOpenSection={go} onOpenUser={(id) => setOpenUser({ id, tab: 'perfil' })} />
+            ) : section === 'verificaciones' ? (
+              <IdentityReviews />
             ) : (
               <AdminUserList key={section} section={section} onOpenUser={(id, tab) => setOpenUser({ id, tab })} />
             )}
@@ -150,7 +156,8 @@ function TestEmailButton() {
           else setError(res.error)
         }}
       >
-        <MessageCircle className="size-3.5" /> Probar envío de mails
+        <MessageCircle className="size-3.5" aria-hidden />
+        <span className="sr-only sm:not-sr-only">Probar envío de mails</span>
       </Button>
       {error ? (
         <div role="alert" className="absolute right-0 top-10 z-20 w-80 rounded-xl border border-olympic-red/40 bg-card p-3 text-xs leading-relaxed text-olympic-red shadow-xl">
@@ -244,18 +251,18 @@ function Overview({ onOpenSection, onOpenUser }: { onOpenSection: (s: AdminSecti
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
         <Section title="Registros" description="Usuarios nuevos en los últimos 14 días" className="xl:col-span-2">
           <div className="flex h-40 items-end gap-1.5" role="img" aria-label="Gráfico de registros por día">
             {data.signups.map((s) => (
-              <div key={s.day} className="group relative flex flex-1 flex-col items-center justify-end">
+              <div key={s.day} title={`${formatDate(`${s.day}T12:00:00`)}: ${s.count}`} className="group relative flex h-full flex-1 flex-col items-center justify-end">
                 <span className="pointer-events-none absolute -top-6 hidden rounded bg-foreground px-1.5 py-0.5 text-[10px] font-bold text-background group-hover:block">{s.count}</span>
                 <span className={cn('w-full rounded-t', s.count ? 'bg-olympic-blue' : 'bg-secondary')} style={{ height: `${Math.max(4, (s.count / peak) * 100)}%` }} />
               </div>
             ))}
           </div>
           <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
-            <span>{formatDate(data.signups[0]?.day ?? null)}</span>
+            <span>{data.signups[0] ? formatDate(`${data.signups[0].day}T12:00:00`) : '—'}</span>
             <span>Hoy</span>
           </div>
         </Section>

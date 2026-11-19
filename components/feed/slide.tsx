@@ -66,7 +66,7 @@ export function AthleteTag({ athlete, onOpen }: { athlete: TagAthlete; onOpen?: 
           {athlete.name}
           {verified ? <BadgeCheck className="size-4 text-primary" aria-label="Perfil verificado" /> : null}
         </span>
-        <span className="truncate text-xs text-muted-foreground">{[athlete.sport, athlete.city, athlete.category].filter(Boolean).join(' · ')}</span>
+        <span className="truncate text-xs text-foreground/80">{[athlete.sport, athlete.city, athlete.category].filter(Boolean).join(' · ')}</span>
       </div>
     </>
   )
@@ -100,7 +100,7 @@ export function Chip({
   )
 }
 
-function RailButton({
+export function RailButton({
   label,
   count,
   active,

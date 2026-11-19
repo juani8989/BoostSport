@@ -20,6 +20,9 @@ type Decision = 'like' | 'pass'
 
 const clamp = (v: number) => Math.max(-1, Math.min(1, v))
 
+/** From this fit on, a card shows the "Busca tu deporte" / "Encaja con tu marca" badge. */
+const FIT_BADGE = 70
+
 export function MatchDeck() {
   const nav = useNav()
   const { data, isLoading, mutate } = useSWR('deck', () => load('getDeck'))
@@ -314,8 +317,10 @@ const Card = memo(
     ? { title: 'Te ofrece', items: card.company.benefits }
     : card.athlete
       ? { title: 'Necesita', items: card.athlete.needs.length ? card.athlete.needs : ['A definir'] }
-      : null
-  const about = card.athlete?.goals || card.company?.about
+      : card.org?.products.length
+        ? { title: 'Productos', items: card.org.products }
+        : null
+  const about = card.athlete?.goals || card.company?.about || card.org?.about
   const stop = (e: React.PointerEvent) => e.stopPropagation()
 
   return (
@@ -364,7 +369,8 @@ const Card = memo(
 
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-olympic-yellow px-2.5 py-1 text-xs font-bold text-olympic-black">{card.affinity}% afinidad</span>
+          {/* No percentage: the fit only orders the deck and earns a badge; each side decides. */}
+          {card.affinity >= FIT_BADGE ? <span className="rounded-full bg-olympic-yellow px-2.5 py-1 text-xs font-bold text-olympic-black">{card.athlete ? 'Encaja con tu marca' : 'Busca tu deporte'}</span> : null}
           {card.appliedToYou ? <span className="rounded-full bg-olympic-green px-2.5 py-1 text-xs font-bold text-olympic-white">Te eligió</span> : null}
           {card.athlete?.followers ? <span className="rounded-full bg-background/70 px-2.5 py-1 text-xs font-semibold">{card.athlete.followers} seguidores</span> : null}
         </div>
@@ -402,6 +408,15 @@ const Card = memo(
                 <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Logros</span>
                 <p className="line-clamp-4 whitespace-pre-line text-sm leading-relaxed">{card.athlete.achievements}</p>
               </div>
+            ) : null}
+            {card.org?.lookingFor ? (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Qué busca</span>
+                <p className="line-clamp-4 text-sm leading-relaxed">{card.org.lookingFor}</p>
+              </div>
+            ) : null}
+            {card.org?.date || card.org?.place ? (
+              <p className="text-sm text-muted-foreground">{[card.org.date, card.org.place].filter(Boolean).join(' · ')}</p>
             ) : null}
             {card.company?.lookingFor?.length ? (
               <div className="flex flex-col gap-1.5">

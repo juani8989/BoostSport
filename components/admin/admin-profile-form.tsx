@@ -53,7 +53,7 @@ function ImagePicker({ label, value, onChange, round }: { label: string; value?:
             <ImagePlus className="size-5 text-muted-foreground" />
           )}
         </span>
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex gap-2">
             <Button size="sm" onClick={() => input.current?.click()}>
               Subir imagen
@@ -69,7 +69,7 @@ function ImagePicker({ label, value, onChange, round }: { label: string; value?:
             placeholder="o pegá una URL https://…"
             value={value && !value.startsWith('data:') ? value : ''}
             onChange={(e) => onChange(e.target.value || undefined)}
-            className="h-8 w-64 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-foreground/60"
+            className="h-8 w-full max-w-64 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-foreground/60"
           />
           {error ? <p className="text-xs text-olympic-red">{error}</p> : null}
         </div>
@@ -166,7 +166,7 @@ function AthleteFields({ p, set }: { p: AthleteProfile; set: (p: AthleteProfile)
   return (
     <>
       <Section title="Identidad">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <ImagePicker label="Foto de perfil" value={p.photo} onChange={(v) => f('photo', v)} round />
           </div>
@@ -182,11 +182,11 @@ function AthleteFields({ p, set }: { p: AthleteProfile; set: (p: AthleteProfile)
       </Section>
 
       <Section title="Historia">
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <AdminTextarea label="Resumen" {...text('summary')} />
           <AdminTextarea label="Objetivos" {...text('goals')} />
           <AdminTextarea label="Logros" {...text('achievements')} />
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <AdminTextarea label="Estudios" {...text('studies')} />
             <AdminTextarea label="Reconocimientos" {...text('recognitions')} />
           </div>
@@ -214,7 +214,7 @@ function AthleteFields({ p, set }: { p: AthleteProfile; set: (p: AthleteProfile)
       </Section>
 
       <Section title="Redes sociales">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {(['instagram', 'tiktok', 'x', 'youtube'] as const).map((k) => (
             <AdminField key={k} label={k === 'x' ? 'X' : k[0].toUpperCase() + k.slice(1)} value={p.socials[k]} onChange={(e) => f('socials', { ...p.socials, [k]: e.target.value })} placeholder="@usuario o URL" />
           ))}
@@ -228,7 +228,7 @@ function AthleteFields({ p, set }: { p: AthleteProfile; set: (p: AthleteProfile)
         onChange={(v) => f('timeline', v)}
         blank={{ year: '', text: '' }}
         render={(t, update) => (
-          <div className="grid gap-2 sm:grid-cols-[100px_1fr]">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[100px_1fr]">
             <AdminField label="Año" value={t.year} onChange={(e) => update({ ...t, year: e.target.value })} />
             <AdminField label="Hito" value={t.text} onChange={(e) => update({ ...t, text: e.target.value })} />
           </div>
@@ -241,9 +241,9 @@ function AthleteFields({ p, set }: { p: AthleteProfile; set: (p: AthleteProfile)
         onChange={(v) => f('gallery', v)}
         blank={{ src: '', caption: '' }}
         render={(g, update) => (
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <ImagePicker label="Imagen" value={g.src || undefined} onChange={(v) => update({ ...g, src: v ?? '' })} />
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <AdminField label="Epígrafe" value={g.caption} onChange={(e) => update({ ...g, caption: e.target.value })} />
               <AdminField label="Crédito" value={g.credit ?? ''} onChange={(e) => update({ ...g, credit: e.target.value || undefined })} />
             </div>
@@ -266,7 +266,7 @@ function OrgFields({ p, set }: { p: OrgProfile; set: (p: OrgProfile) => void }) 
   return (
     <>
       <Section title="Identidad">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <ImagePicker label="Logo" value={p.logo} onChange={(v) => f('logo', v)} round />
           </div>
@@ -279,7 +279,7 @@ function OrgFields({ p, set }: { p: OrgProfile; set: (p: OrgProfile) => void }) 
       </Section>
 
       <Section title="Presentación">
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <AdminTextarea label="Descripción" {...text('description')} />
           <AdminTextarea label="Qué busca" {...text('lookingFor')} />
         </div>
@@ -287,7 +287,7 @@ function OrgFields({ p, set }: { p: OrgProfile; set: (p: OrgProfile) => void }) 
 
       {p.kind === 'evento' ? (
         <Section title="Evento">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <AdminField label="Fecha" type="date" {...text('eventDate')} />
             <AdminField label="Lugar" value={info.place} onChange={(e) => setInfo('place', e.target.value)} />
             <AdminField label="Distancia / formato" value={info.distance} onChange={(e) => setInfo('distance', e.target.value)} />
@@ -304,7 +304,7 @@ function OrgFields({ p, set }: { p: OrgProfile; set: (p: OrgProfile) => void }) 
         onChange={(v) => f('sponsored', v)}
         blank={{ key: '', name: '', discipline: '', since: String(new Date().getFullYear()) }}
         render={(s, update) => (
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <AdminField label="Nombre" value={s.name} onChange={(e) => update({ ...s, name: e.target.value, key: s.key || `manual:${e.target.value}` })} />
             <AdminField label="Disciplina" value={s.discipline} onChange={(e) => update({ ...s, discipline: e.target.value })} />
             <AdminField label="Desde" value={s.since} onChange={(e) => update({ ...s, since: e.target.value })} />
@@ -319,8 +319,8 @@ function OrgFields({ p, set }: { p: OrgProfile; set: (p: OrgProfile) => void }) 
         onChange={(v) => f('merch', v)}
         blank={{ name: '', price: '' }}
         render={(m, update) => (
-          <div className="grid gap-3">
-            <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <AdminField label="Producto" value={m.name} onChange={(e) => update({ ...m, name: e.target.value })} />
               <AdminField label="Precio" value={m.price} onChange={(e) => update({ ...m, price: e.target.value })} />
             </div>

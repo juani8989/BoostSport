@@ -26,8 +26,11 @@ export function OrgSignup({ role }: { role: Exclude<Role, 'deportista'> }) {
   const [pending, setPending] = useState(false)
   const [verification, setVerification] = useState<PendingVerification | null>(null)
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [key]: e.target.value }))
+    // A field's error goes away as soon as the person edits that field.
+    setErrors(({ [key]: _, ...rest }) => rest)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

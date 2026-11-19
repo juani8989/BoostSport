@@ -158,3 +158,20 @@ export const postAudio = pgTable('post_audio', {
   audioName: text('audioName').notNull().default(''),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
+
+/**
+ * Identity checks for new athletes: the selfie, the optional ID photo and what was found on
+ * the web. Only admins read it; the images are deleted once the check is decided.
+ */
+export const identityReviews = pgTable('identity_reviews', {
+  userId: text('userId').primaryKey(),
+  status: text('status').notNull().default('pendiente'),
+  selfie: text('selfie'),
+  document: text('document'),
+  evidence: jsonb('evidence').notNull(),
+  aiCheck: jsonb('aiCheck'),
+  note: text('note'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  reviewedAt: timestamp('reviewedAt'),
+  reviewedBy: text('reviewedBy'),
+})

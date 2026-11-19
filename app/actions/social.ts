@@ -1,5 +1,6 @@
 'use server'
 
+import { photoOwner } from '@/lib/photo-id'
 import { and, count, desc, eq, inArray } from 'drizzle-orm'
 import { postImageSrc } from '@/lib/media'
 import { db } from '@/lib/db'
@@ -9,7 +10,7 @@ import { events, seedAthleteKey, seedDaily, type DailyKind } from '@/lib/catalog
 import { getSettings, getSettingsMap } from '@/lib/user-settings'
 import { isBlobUrl } from '@/lib/blob-url'
 
-export type ReactionKind = 'like' | 'apoyo' | 'asistir' | 'guardado' | 'repost'
+export type ReactionKind = 'like' | 'apoyo' | 'asistir' | 'guardado' | 'repost' | 'aplauso' | 'recomendar'
 
 export type FeedPost = {
   id: string
@@ -34,8 +35,9 @@ export type FeedComment = { id: string; author: string; body: string; createdAt:
 type Result = { ok: true } | { ok: false; error: string }
 
 const DAILY_KINDS: DailyKind[] = ['diario', 'idea', 'colab', 'meta']
-const REACTION_KINDS: ReactionKind[] = ['like', 'apoyo', 'asistir', 'guardado', 'repost']
-const TARGET_PATTERN = /^(seed:d\d+|post:\d+|event:[a-z0-9-]+|athlete:(user:[\w-]+|seed:at-[a-z]+))$/
+const REACTION_KINDS: ReactionKind[] = ['like', 'apoyo', 'asistir', 'guardado', 'repost', 'aplauso', 'recomendar']
+// vit:<id> is a logro in the Vitrina (vit:v1… for the samples, vit:<uuid> for real ones).
+const TARGET_PATTERN = /^(seed:d\d+|post:\d+|photo:[\w-]+\.[a-z0-9]{1,8}|event:[a-z0-9-]+|vit:[\w-]+|athlete:(user:[\w-]+|seed:at-[a-z]+))$/
 const MAX_IMAGE_CHARS = 1_400_000
 
 function validTarget(targetId: string) {
@@ -206,6 +208,8 @@ export async function toggleReaction(targetId: string, kind: ReactionKind): Prom
 }
 
 async function postOwner(targetId: string) {
+  // Gallery photos carry their owner in the id.
+  if (targetId.startsWith('photo:')) return photoOwner(targetId)
   if (!targetId.startsWith('post:')) return null
   const [row] = await db.select({ userId: posts.userId }).from(posts).where(eq(posts.id, Number(targetId.slice(5)))).limit(1)
   return row?.userId ?? null

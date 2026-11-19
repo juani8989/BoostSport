@@ -8,8 +8,9 @@ import { postImageSrc } from '@/lib/media'
 import { getSettings, saveSettings } from '@/lib/user-settings'
 import type { NotificationKey } from '@/lib/settings'
 import type { OfferMeta } from '@/app/actions/match'
+import { orgAffinity } from '@/lib/catalog'
 
-export type NotificationType = 'like' | 'apoyo' | 'repost' | 'donar' | 'comentario' | 'seguidor' | 'apoyo-perfil' | 'interes' | 'match' | 'mensaje' | 'propuesta' | 'propuesta-aceptada' | 'propuesta-rechazada'
+export type NotificationType = 'like' | 'apoyo' | 'repost' | 'donar' | 'aplauso' | 'recomendacion' | 'comentario' | 'seguidor' | 'apoyo-perfil' | 'interes' | 'match' | 'mensaje' | 'propuesta' | 'propuesta-aceptada' | 'propuesta-rechazada'
 
 export type NotificationTarget = { kind: 'post'; postId: string; ownerKey: string } | { kind: 'profile'; key: string } | { kind: 'chat'; matchId: number }
 
@@ -34,6 +35,8 @@ const SETTING: Record<NotificationType, NotificationKey> = {
   apoyo: 'likes',
   repost: 'likes',
   donar: 'likes',
+  aplauso: 'likes',
+  recomendacion: 'matches',
   'apoyo-perfil': 'likes',
   comentario: 'comentarios',
   seguidor: 'seguidores',
@@ -63,6 +66,11 @@ export async function getMyNotifications(): Promise<{ items: AppNotification[]; 
     db.select().from(matches).where(or(eq(matches.athleteKey, key), eq(matches.orgKey, key))),
   ])
   const postIds = myPosts.map((p) => `post:${p.id}`)
+  // An athlete's own logros in the Vitrina (vit:<id>), for "aplaudió tu logro".
+  const myLogros = viewer.profile.kind === 'deportista' ? viewer.profile.vitrina ?? [] : []
+  const logroIds = myLogros.map((v) => `vit:${v.id}`)
+  const logroTitle = new Map(myLogros.map((v) => [`vit:${v.id}`, v.type === 'medalla' ? v.title : `${v.metric}: ${v.value}`]))
+  const isBrand = viewer.role === 'empresa'
   const postBy = new Map(myPosts.map((p) => [`post:${p.id}`, p]))
   const matchIds = myMatches.map((m) => m.id)
   const otherOf = new Map(myMatches.map((m) => [m.id, m.athleteKey === key ? m.orgKey : m.athleteKey]))
@@ -71,7 +79,7 @@ export async function getMyNotifications(): Promise<{ items: AppNotification[]; 
     db
       .select()
       .from(reactions)
-      .where(and(inArray(reactions.targetId, [...postIds, `athlete:${key}`]), ne(reactions.userId, viewer.id), inArray(reactions.kind, ['like', 'apoyo', 'repost', 'donar']), gte(reactions.createdAt, since)))
+      .where(and(inArray(reactions.targetId, [...postIds, ...logroIds, `athlete:${key}`]), ne(reactions.userId, viewer.id), inArray(reactions.kind, ['like', 'apoyo', 'repost', 'donar', 'aplauso', 'recomendar']), gte(reactions.createdAt, since)))
       .orderBy(desc(reactions.createdAt))
       .limit(PER_SOURCE * 3),
     postIds.length
@@ -84,12 +92,22 @@ export async function getMyNotifications(): Promise<{ items: AppNotification[]; 
       : Promise.resolve([]),
     db.select({ t: follows.targetId }).from(follows).where(eq(follows.followerId, viewer.id)),
   ])
+  // Brands hear about athletes others recommended to them (only the ones that fit their profile).
+  const recommendRows = isBrand
+    ? await db
+        .select()
+        .from(reactions)
+        .where(and(eq(reactions.kind, 'recomendar'), ne(reactions.userId, viewer.id), gte(reactions.createdAt, since)))
+        .orderBy(desc(reactions.createdAt))
+        .limit(PER_SOURCE)
+    : []
 
   const actorKeys = [
     ...reactionRows.map((r) => userKey(r.userId)),
     ...commentRows.map((c) => userKey(c.userId)),
     ...followerRows.map((f) => userKey(f.followerId)),
     ...interestRows.map((s) => userKey(s.userId)),
+    ...recommendRows.flatMap((r) => [userKey(r.userId), r.targetId.slice(8)]),
     ...messageRows.map((m) => (m.senderKey === key || m.senderKey === 'system' ? otherOf.get(m.matchId) ?? '' : m.senderKey)),
     ...myMatches.map((m) => otherOf.get(m.id) ?? ''),
   ].filter(Boolean)
@@ -120,6 +138,14 @@ export async function getMyNotifications(): Promise<{ items: AppNotification[]; 
     if (!first) continue
     const actor = parties.get(userKey(first.userId))!
     const others = new Set(visible.map((r) => r.userId)).size - 1
+    if (targetId === `athlete:${key}` && kind === 'recomendar') {
+      add({ id: `recomendacion:${first.userId}:${first.createdAt.getTime()}`, type: 'recomendacion', actor, others, text: others ? 'te recomendaron a las marcas de tu deporte' : 'te recomendó a las marcas de tu deporte', at: first.createdAt.toISOString(), target: { kind: 'profile', key: actor.key } })
+      continue
+    }
+    if (kind === 'aplauso') {
+      add({ id: `aplauso:${targetId}:${first.createdAt.getTime()}`, type: 'aplauso', actor, others, text: others ? 'aplaudieron tu logro' : 'aplaudió tu logro', preview: logroTitle.get(targetId), at: first.createdAt.toISOString(), target: { kind: 'profile', key } })
+      continue
+    }
     if (targetId === `athlete:${key}`) {
       add({ id: `apoyo-perfil:${first.userId}:${first.createdAt.getTime()}`, type: 'apoyo-perfil', actor, others, text: others ? 'te apoyaron' : 'te apoyó', at: first.createdAt.toISOString(), target: { kind: 'profile', key: actor.key } })
       continue
@@ -131,6 +157,14 @@ export async function getMyNotifications(): Promise<{ items: AppNotification[]; 
       donar: others ? 'quieren donarte por tu publicación' : 'quiere donarte por tu publicación',
     }[kind as 'like' | 'apoyo' | 'repost' | 'donar']
     add({ id: `${kind}:${targetId}:${first.createdAt.getTime()}`, type: kind as NotificationType, actor, others, text: verb, at: first.createdAt.toISOString(), target: { kind: 'post', postId: targetId, ownerKey: key }, ...postInfo(targetId) })
+  }
+
+  for (const rec of recommendRows) {
+    const actor = parties.get(userKey(rec.userId))
+    const athlete = parties.get(rec.targetId.slice(8))
+    if (!actor || !athlete || athlete.role !== 'deportista') continue
+    if (viewer.profile.kind === 'deportista' || orgAffinity({ discipline: athlete.subtitle, needs: [] }, viewer.profile) < 60) continue
+    add({ id: `recomendacion:${rec.userId}:${rec.targetId}`, type: 'recomendacion', actor, text: `te recomendó a ${athlete.name} (${athlete.subtitle.split(' · ')[0]})`, image: athlete.image, at: rec.createdAt.toISOString(), target: { kind: 'profile', key: athlete.key } })
   }
 
   for (const c of commentRows) {

@@ -3,7 +3,9 @@
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import { postAudioSrc, postImageSrc } from '@/lib/media'
 import { db } from '@/lib/db'
-import { comments, follows, postAudio, posts, reactions } from '@/lib/db/schema'
+import { comments, follows, postAudio, posts, profiles, reactions } from '@/lib/db/schema'
+import { galleryPhotoId } from '@/lib/photo-id'
+import type { AthleteProfile } from '@/lib/profile-types'
 import { describeParties, getViewer, requireViewer, userKey, type Party } from '@/lib/viewer'
 import { seedAthleteFromKey, seedDaily, type DailyKind } from '@/lib/catalog'
 import { getSettings } from '@/lib/user-settings'
@@ -33,7 +35,7 @@ export type ViewerPost = {
   donated: boolean
 }
 
-const POST_ID = /^(seed:d\d+|post:\d+)$/
+const POST_ID = /^(seed:d\d+|post:\d+|photo:[\w-]+\.[a-z0-9]{1,8})$/
 const KEY = /^(user:[\w-]+|seed:at-[a-z]+)$/
 
 /** Audio lives in its own table; until it's created posts simply have no audio. */
@@ -68,12 +70,27 @@ export async function getProfilePosts(profileKey: string): Promise<ViewerPost[]>
       .map((d) => ({ id: d.id, kind: d.kind, body: d.body, image: d.image, createdAt: new Date(now - d.minutesAgo * 60_000).toISOString(), baseLikes: d.baseLikes, baseComments: d.baseComments.length, audio: null }))
   } else {
     const userId = key.slice(5)
-    const [settings, allRows] = await Promise.all([getSettings(userId), db.select().from(posts).where(eq(posts.userId, userId)).orderBy(desc(posts.createdAt)).limit(60)])
+    const [settings, allRows, [profileRow]] = await Promise.all([
+      getSettings(userId),
+      db.select().from(posts).where(eq(posts.userId, userId)).orderBy(desc(posts.createdAt)).limit(60),
+      db.select({ data: profiles.data, createdAt: profiles.createdAt }).from(profiles).where(eq(profiles.userId, userId)).limit(1),
+    ])
     const isMe = viewer?.id === userId
     if (!isMe && viewer && settings.blocked.includes(viewer.key)) return []
     const archived = new Set(isMe ? [] : settings.archived)
     const rows = allRows.filter((p) => !archived.has(`post:${p.id}`))
     base = rows.map((p) => ({ id: `post:${p.id}`, kind: p.kind as DailyKind, body: p.body, image: postImageSrc(p.id, p.mediaUrl), createdAt: p.createdAt.toISOString(), baseLikes: 0, baseComments: 0, audio: null }))
+    // The photos uploaded to the profile (not the press ones, which carry a credit) come after
+    // the posts, so the viewer goes through everything the grid shows. Same privacy as the profile.
+    const following = viewer ? (await db.select({ t: follows.targetId }).from(follows).where(and(eq(follows.followerId, viewer.id), eq(follows.targetId, key))).limit(1)).length > 0 : false
+    const restricted = !isMe && settings.privacy.privateAccount && !following
+    const profile = profileRow?.data as AthleteProfile | undefined
+    if (profile?.kind === 'deportista' && !restricted) {
+      for (const photo of profile.gallery ?? []) {
+        if (photo.credit || !photo.src) continue
+        base.push({ id: galleryPhotoId(key, photo.src), kind: 'diario', body: photo.caption ?? '', image: photo.src, createdAt: profileRow.createdAt.toISOString(), baseLikes: 0, baseComments: 0, audio: null })
+      }
+    }
   }
   if (!base.length) return []
 

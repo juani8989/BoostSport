@@ -10,17 +10,38 @@ import { needOptions } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { load } from '@/lib/load'
 
-export function ChatThread({ matchId, onBack }: { matchId: number; onBack: () => void }) {
+export function ChatThread({ matchId, focusMessageId, onBack }: { matchId: number; focusMessageId?: number | null; onBack: () => void }) {
   const nav = useNav()
   const { data, mutate, isLoading } = useSWR(['thread', matchId], () => load('getThread', matchId), { refreshInterval: 5000 })
   const [text, setText] = useState('')
   const [pending, setPending] = useState(false)
   const [offering, setOffering] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const focused = useRef(false)
+  const [highlight, setHighlight] = useState<number | null>(null)
 
+  // Opened from a search result: jump to that message once and mark it for a moment.
+  // Otherwise, keep the newest message in view.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
-  }, [data?.messages.length])
+    if (!data?.messages.length) return
+    if (focusMessageId && !focused.current) {
+      focused.current = true
+      const el = document.getElementById(`msg-${focusMessageId}`)
+      if (el) {
+        el.scrollIntoView({ block: 'center' })
+        setHighlight(focusMessageId)
+        const t = setTimeout(() => setHighlight(null), 2200)
+        return () => clearTimeout(t)
+      }
+    }
+    if (!focusMessageId || focused.current) endRef.current?.scrollIntoView({ block: 'end' })
+  }, [data?.messages.length, focusMessageId])
+
+  // On computers the cursor goes straight to the message box (on phones it would pop the keyboard).
+  useEffect(() => {
+    if (window.matchMedia('(min-width: 768px)').matches) inputRef.current?.focus()
+  }, [matchId, !!data])
 
   async function send() {
     const body = text.trim()
@@ -40,9 +61,9 @@ export function ChatThread({ matchId, onBack }: { matchId: number; onBack: () =>
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col bg-background">
-      <header className="flex items-center gap-3 border-b border-border px-4 pb-3 pt-5">
-        <button type="button" onClick={onBack} aria-label="Volver" className="flex size-9 items-center justify-center rounded-full bg-secondary">
+    <div className="absolute inset-0 z-40 flex flex-col bg-background md:relative md:inset-auto md:z-auto md:min-w-0 md:flex-1">
+      <header className="flex items-center gap-3 border-b border-border px-4 pb-3 pt-5 md:pt-4">
+        <button type="button" onClick={onBack} aria-label="Volver" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary md:hidden">
           <ArrowLeft className="size-4" />
         </button>
         {data ? (
@@ -61,10 +82,14 @@ export function ChatThread({ matchId, onBack }: { matchId: number; onBack: () =>
         ) : null}
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 md:px-8">
         {isLoading ? <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" aria-label="Cargando conversación" /> : null}
         {data === null ? <p className="text-center text-sm text-muted-foreground">No encontramos esta conversación.</p> : null}
-        {data?.messages.map((m) => <Bubble key={m.id} message={m} onRespond={respond} />)}
+        {data?.messages.map((m) => (
+          <div key={m.id} id={`msg-${m.id}`} className={cn('-mx-2 flex flex-col rounded-2xl px-2 transition-colors duration-700', highlight === m.id && 'bg-olympic-yellow/25')}>
+            <Bubble message={m} onRespond={respond} />
+          </div>
+        ))}
         <div ref={endRef} />
       </div>
 
@@ -74,16 +99,19 @@ export function ChatThread({ matchId, onBack }: { matchId: number; onBack: () =>
             e.preventDefault()
             send()
           }}
-          className="flex items-center gap-2 border-t border-border px-3 py-3"
+          className="flex items-center gap-2 border-t border-border px-3 py-3 md:px-6"
         >
-          <button type="button" onClick={() => setOffering(true)} aria-label="Enviar propuesta" className="flex size-11 shrink-0 items-center justify-center rounded-full bg-olympic-yellow text-olympic-black">
-            <FileSignature className="size-5" />
-          </button>
+          {data.canOffer ? (
+            <button type="button" onClick={() => setOffering(true)} aria-label="Enviar propuesta" title="Enviar propuesta" className="flex size-11 shrink-0 items-center justify-center rounded-full bg-olympic-yellow text-olympic-black">
+              <FileSignature className="size-5" />
+            </button>
+          ) : null}
           <label htmlFor="chat-input" className="sr-only">
             Escribí un mensaje
           </label>
           <input
             id="chat-input"
+            ref={inputRef}
             value={text}
             maxLength={1000}
             onChange={(e) => setText(e.target.value)}
@@ -135,7 +163,7 @@ function Bubble({ message, onRespond }: { message: ThreadMessage; onRespond: (id
   if (message.kind === 'offer' && message.meta) {
     const meta = message.meta
     return (
-      <div className={cn('flex w-[85%] flex-col gap-3 rounded-2xl border-2 p-4', message.mine ? 'self-end border-olympic-blue' : 'self-start border-olympic-yellow')}>
+      <div className={cn('flex w-[85%] max-w-md flex-col gap-3 rounded-2xl border-2 p-4', message.mine ? 'self-end border-olympic-blue' : 'self-start border-olympic-yellow')}>
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-2 font-display text-lg font-semibold">
             <Handshake className="size-5 text-olympic-yellow" />
@@ -196,7 +224,7 @@ function Bubble({ message, onRespond }: { message: ThreadMessage; onRespond: (id
   return (
     <p
       className={cn(
-        'max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+        'max-w-[80%] whitespace-pre-wrap rounded-2xl md:max-w-[65%] px-4 py-2.5 text-sm leading-relaxed',
         message.mine ? 'self-end rounded-br-sm bg-olympic-blue text-olympic-white' : 'self-start rounded-bl-sm bg-card',
       )}
     >

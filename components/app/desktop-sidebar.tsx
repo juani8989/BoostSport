@@ -9,26 +9,25 @@ import { cn } from '@/lib/utils'
 
 type Tab = { id: MainTab; label: string; icon: LucideIcon }
 
-/** The label slides out of the button itself, to the right, while the cursor is over it (or it has focus). */
-const reveal =
-  'max-w-0 overflow-hidden whitespace-nowrap pr-0 text-[15px] font-semibold opacity-0 transition-all duration-200 ease-out group-hover:max-w-56 group-hover:pr-4 group-hover:opacity-100 group-focus-visible:max-w-56 group-focus-visible:pr-4 group-focus-visible:opacity-100 motion-reduce:transition-none'
+/** Names show beside the icons only where there is room for them (xl and up); the rail never covers the page. */
+const reveal = 'hidden min-w-0 truncate whitespace-nowrap pr-4 text-[15px] xl:inline'
 
-function RailItem({ label, onClick, active, children, haspopup }: { label: string; onClick: () => void; active?: boolean; children: React.ReactNode; haspopup?: boolean }) {
+function RailItem({ label, ariaLabel, onClick, active, children, haspopup }: { label: string; ariaLabel?: string; onClick: () => void; active?: boolean; children: React.ReactNode; haspopup?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={label}
+      aria-label={ariaLabel ?? label}
+      title={ariaLabel ?? label}
       aria-current={active ? 'page' : undefined}
       aria-haspopup={haspopup ? 'dialog' : undefined}
       className={cn(
-        // w-max lets the button grow past the rail, over the content, as the label opens.
-        'group relative z-10 flex h-12 w-max min-w-12 items-center rounded-xl transition-colors hover:z-50 hover:bg-secondary hover:shadow-lg focus-visible:z-50 focus-visible:bg-secondary focus-visible:outline-none',
-        active && 'bg-secondary',
+        'flex h-12 w-full items-center overflow-hidden rounded-xl transition-colors hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none',
+        active && 'font-bold',
       )}
     >
       <span className="relative flex size-12 shrink-0 items-center justify-center">{children}</span>
-      <span aria-hidden className={reveal}>
+      <span aria-hidden className={cn(reveal, active ? 'font-bold' : 'font-medium')}>
         {label}
       </span>
     </button>
@@ -61,9 +60,14 @@ export function DesktopSidebar({
   onSettings: () => void
 }) {
   return (
-    <aside className="sticky top-0 z-[60] hidden h-dvh w-[72px] shrink-0 flex-col border-r border-border bg-background px-3 py-6 md:flex">
-      <div className="flex w-12 justify-center pb-8">
-        <RefreshLogo compact className="size-12" />
+    // Icons only on medium screens, icons and names on wide ones. It takes its own space,
+    // so opening it never puts anything on top of the page.
+    <aside className="sticky top-0 z-[60] hidden h-dvh w-[72px] shrink-0 flex-col border-r border-border bg-background px-3 py-6 md:flex xl:w-60">
+      <div className="flex items-center pb-8">
+        <RefreshLogo compact className="size-12 shrink-0" />
+        <span aria-hidden className={cn(reveal, 'pl-2 font-display text-xl font-semibold')}>
+          BoostSport
+        </span>
       </div>
 
       <nav aria-label="Secciones" className="flex flex-col gap-1">
@@ -73,7 +77,7 @@ export function DesktopSidebar({
           </RailItem>
         ))}
         {!isGuest ? (
-          <RailItem label={unreadCount ? `Notificaciones (${unreadCount} sin leer)` : 'Notificaciones'} onClick={onNotifications}>
+          <RailItem label="Notificaciones" ariaLabel={unreadCount ? `Notificaciones, ${unreadCount} sin leer` : undefined} onClick={onNotifications}>
             <Bell className="size-6" strokeWidth={1.75} />
             {unreadCount > 0 ? (
               <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-accent-foreground">{unreadCount}</span>
@@ -93,7 +97,7 @@ export function DesktopSidebar({
             </RailItem>
           </>
         ) : (
-          <RailItem label="Configuración y actividad" onClick={onSettings} haspopup>
+          <RailItem label="Configuración" onClick={onSettings} haspopup>
             <Menu className="size-6" strokeWidth={1.75} />
           </RailItem>
         )}

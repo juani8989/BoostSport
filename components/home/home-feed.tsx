@@ -60,8 +60,9 @@ export function HomeFeed() {
           const current = segment === s
           const onVitrina = current && showVitrina
           return (
+            // The bubble hangs from the button it talks about, so its arrow always points at it.
+            <span key={s} className="relative">
             <button
-              key={s}
               type="button"
               role="tab"
               aria-selected={current}
@@ -84,22 +85,23 @@ export function HomeFeed() {
               {onVitrina ? 'Vitrina' : labelOf(s)}
               {togglesVitrina(s) && current ? <ArrowLeftRight aria-hidden className="ml-1.5 inline size-3 align-[-1px] opacity-80" /> : null}
             </button>
+            {hint.show && current && togglesVitrina(s) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setVitrina(true)
+                  hint.dismiss()
+                }}
+                className="absolute left-0 top-full z-30 mt-2.5 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-olympic-red px-3 py-1.5 text-xs font-bold text-olympic-white shadow-lg animate-in fade-in slide-in-from-top-1 duration-300"
+              >
+                <span aria-hidden className="absolute -top-1 left-7 size-2.5 rotate-45 bg-olympic-red" />
+                Tocá de nuevo para ver la Vitrina
+              </button>
+            ) : null}
+            </span>
           )
         })}
       </div>
-      {hint.show ? (
-        <button
-          type="button"
-          onClick={() => {
-            setVitrina(true)
-            hint.dismiss()
-          }}
-          className="absolute left-1/2 top-[6.25rem] z-30 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-olympic-red px-3 py-1.5 text-xs font-bold text-olympic-white shadow-lg animate-in fade-in slide-in-from-top-1 duration-300"
-        >
-          <span aria-hidden className="absolute -top-1 left-1/2 size-2.5 -translate-x-1/2 rotate-45 bg-olympic-red" />
-          Tocá de nuevo para ver la Vitrina
-        </button>
-      ) : null}
       {isEventList ? (
         <div ref={list} key={segment} className={cn('h-full overflow-y-auto px-4 pb-28 [scrollbar-width:none] transition-[padding]', hint.show ? 'pt-36' : 'pt-28')}>
           {segment === 'deportistas' ? <EventAthletesFeed /> : <EventBrandsFeed />}

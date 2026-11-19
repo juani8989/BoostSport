@@ -19,6 +19,12 @@ function SignInForm({ role }: { role: Role }) {
   const [pending, setPending] = useState(false)
   const [verification, setVerification] = useState<PendingVerification | null>(null)
 
+  // A field's error goes away as soon as the person edits that field.
+  const edit = (key: 'email' | 'password', setValue: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValue(e.target.value)
+    setErrors(({ [key]: _, ...rest }) => rest)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const nextErrors = validateCredentials(email, password)
@@ -45,8 +51,8 @@ function SignInForm({ role }: { role: Role }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-      <Field label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
-      <Field label="Contraseña" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} />
+      <Field label="Email" type="email" autoComplete="email" value={email} onChange={edit('email', setEmail)} error={errors.email} />
+      <Field label="Contraseña" type="password" autoComplete="current-password" value={password} onChange={edit('password', setPassword)} error={errors.password} />
       <FormError message={formError} />
       <button type="submit" disabled={pending} className={cn('rounded-full px-5 py-3 font-bold transition-opacity disabled:opacity-60', roleConfig[role].button)}>
         {pending ? 'Ingresando…' : 'Ingresar'}

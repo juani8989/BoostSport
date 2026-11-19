@@ -145,14 +145,7 @@ function ProfileView({ data, onEdit }: { data: Detail; onEdit: () => void }) {
       <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
         <div className={cn('h-24', p.kind === 'deportista' ? 'bg-olympic-blue/30' : p.kind === 'empresa' ? 'bg-olympic-yellow/30' : 'bg-olympic-green/30')} />
         <div className="flex flex-wrap items-end gap-4 px-6 pb-6">
-          <span className="-mt-12 flex size-24 items-center justify-center overflow-hidden rounded-2xl border-4 border-card bg-secondary font-display text-2xl font-semibold">
-            {image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img loading="lazy" decoding="async" src={image} alt="" className="size-full object-cover" />
-            ) : (
-              profileDisplayName(p, data.user.name).slice(0, 2).toUpperCase()
-            )}
-          </span>
+          <Avatar name={profileDisplayName(p, data.user.name)} image={image} role={null} className="-mt-12 size-24 rounded-2xl border-4 border-card font-display text-2xl font-semibold ring-0" />
           <div className="min-w-0 flex-1">
             <h3 className="flex items-center gap-2 font-display text-2xl font-semibold">
               {profileDisplayName(p, data.user.name)}

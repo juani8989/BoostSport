@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { CalendarDays, ClipboardList, Globe, Heart, Loader2, MapPin, Megaphone, Search, ShoppingBag, Sparkles, Users } from 'lucide-react'
+import { CalendarDays, ClipboardList, Trophy, Globe, Heart, Loader2, MapPin, Megaphone, Search, ShoppingBag, Sparkles, Users } from 'lucide-react'
 import type { RealOrg } from '@/app/actions/orgs'
 import { useNav } from '@/components/app/nav'
 import { PartyAvatar, Sheet } from '@/components/app/kit'
 import { ApplySheet } from '@/components/home/apply-sheet'
 import { load } from '@/lib/load'
+import { deadlineLabel, isOpen } from '@/components/profile/sponsor-tools'
+import type { OrgChallenge } from '@/lib/profile-types'
 import { cn } from '@/lib/utils'
 
 const COVER = { empresa: '/images/brand-campaign.webp', evento: '/images/event-marathon.webp' } as const
@@ -18,6 +20,9 @@ function niceDate(value: string) {
   if (!m) return value
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
+
+/** Same bar as the Match badge. */
+const FIT_BADGE = 70
 
 const isImage = (src?: string) => !!src && /^(https:\/\/|\/|data:image\/)/.test(src)
 
@@ -38,7 +43,7 @@ export function useRealOrgs(kind: 'empresa' | 'evento') {
 /** A full-screen card in the Inicio feed for a real sponsor or event. */
 export function RealOrgSlide({ org, eager }: { org: RealOrg; eager?: boolean }) {
   const [open, setOpen] = useState(false)
-  const [applying, setApplying] = useState(false)
+  const [applying, setApplying] = useState<false | { challenge?: OrgChallenge }>(false)
   const nav = useNav()
   const p = org.profile
   const isEvent = p.kind === 'evento'
@@ -54,9 +59,10 @@ export function RealOrgSlide({ org, eager }: { org: RealOrg; eager?: boolean }) 
           <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide', isEvent ? 'bg-olympic-green text-olympic-white' : 'bg-olympic-yellow text-olympic-black')}>
             {p.category || (isEvent ? 'Evento' : 'Sponsor')}
           </span>
-          {org.affinity !== null ? (
+          {/* No percentage: a badge only when it fits the athlete's sport (it also orders the list). */}
+          {org.affinity !== null && org.affinity >= FIT_BADGE ? (
             <span className="flex items-center gap-1 rounded-full bg-background/70 px-2.5 py-1 text-[11px] font-bold backdrop-blur">
-              <Sparkles className="size-3 text-olympic-yellow" /> {org.affinity}% afinidad
+              <Sparkles className="size-3 text-olympic-yellow" /> Busca tu deporte
             </span>
           ) : null}
         </div>
@@ -85,9 +91,10 @@ export function RealOrgSlide({ org, eager }: { org: RealOrg; eager?: boolean }) 
             <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">{p.lookingFor}</p>
           </div>
         ) : null}
+        <Challenges list={p.challenges} canApply={canApply} onApply={(challenge) => nav.requireAccount() && setApplying({ challenge })} limit={2} />
         <div className="flex gap-2">
           {canApply ? (
-            <button type="button" onClick={() => nav.requireAccount() && setApplying(true)} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-olympic-blue px-4 py-3 text-sm font-bold text-olympic-white">
+            <button type="button" onClick={() => nav.requireAccount() && setApplying({})} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-olympic-blue px-4 py-3 text-sm font-bold text-olympic-white">
               <Heart className="size-4" />
               {isEvent ? 'Quiero participar' : 'Quiero ser su cara'}
             </button>
@@ -98,7 +105,7 @@ export function RealOrgSlide({ org, eager }: { org: RealOrg; eager?: boolean }) 
         </div>
       </div>
       {open ? <RealOrgSheet org={org} onClose={() => setOpen(false)} /> : null}
-      {applying ? <ApplySheet company={{ key: org.key, name: org.party.name }} onClose={() => setApplying(false)} /> : null}
+      {applying ? <ApplySheet company={{ key: org.key, name: org.party.name }} challenge={applying.challenge} onClose={() => setApplying(false)} /> : null}
     </article>
   )
 }
@@ -106,7 +113,7 @@ export function RealOrgSlide({ org, eager }: { org: RealOrg; eager?: boolean }) 
 /** The full page of a real sponsor or institution. */
 export function RealOrgSheet({ org, onClose }: { org: RealOrg; onClose: () => void }) {
   const nav = useNav()
-  const [applying, setApplying] = useState(false)
+  const [applying, setApplying] = useState<false | { challenge?: OrgChallenge }>(false)
   const p = org.profile
   const isEvent = p.kind === 'evento'
   const canApply = nav.role === 'deportista' || nav.role === 'invitado'
@@ -120,7 +127,7 @@ export function RealOrgSheet({ org, onClose }: { org: RealOrg; onClose: () => vo
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="font-display text-2xl font-semibold">{org.party.name}</span>
             <span className="text-sm text-muted-foreground">{p.category || (isEvent ? 'Evento' : 'Sponsor')}</span>
-            {org.affinity !== null ? <span className="mt-1 text-xs font-bold text-olympic-yellow">{org.affinity}% de afinidad con vos</span> : null}
+            {org.affinity !== null && org.affinity >= FIT_BADGE ? <span className="mt-1 text-xs font-bold text-olympic-yellow">Busca deportistas de tu disciplina</span> : null}
           </div>
         </header>
         {p.description ? <p className="text-pretty text-sm leading-relaxed">{p.description}</p> : null}
@@ -140,6 +147,7 @@ export function RealOrgSheet({ org, onClose }: { org: RealOrg; onClose: () => vo
         {info?.requirements ? <Block icon={<ClipboardList className="size-4 text-olympic-green" />} title="Requisitos" text={info.requirements} /> : null}
         {info?.signup ? <Block icon={<ClipboardList className="size-4 text-olympic-blue" />} title="Inscripción" text={info.signup} /> : null}
         {info?.reach ? <Block icon={<Megaphone className="size-4 text-olympic-yellow" />} title="Repercusión" text={info.reach} /> : null}
+        <Challenges list={p.challenges} canApply={canApply} onApply={(challenge) => nav.requireAccount() && setApplying({ challenge })} />
         {p.merch?.length ? (
           <section className="flex flex-col gap-2">
             <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide">
@@ -164,13 +172,13 @@ export function RealOrgSheet({ org, onClose }: { org: RealOrg; onClose: () => vo
           </section>
         ) : null}
         {canApply ? (
-          <button type="button" onClick={() => nav.requireAccount() && setApplying(true)} className="flex items-center justify-center gap-2 rounded-full bg-olympic-blue px-5 py-3 font-bold text-olympic-white">
+          <button type="button" onClick={() => nav.requireAccount() && setApplying({})} className="flex items-center justify-center gap-2 rounded-full bg-olympic-blue px-5 py-3 font-bold text-olympic-white">
             <Heart className="size-4" />
             {isEvent ? 'Quiero participar' : 'Quiero ser su cara'}
           </button>
         ) : null}
       </div>
-      {applying ? <ApplySheet company={{ key: org.key, name: org.party.name }} onClose={() => setApplying(false)} /> : null}
+      {applying ? <ApplySheet company={{ key: org.key, name: org.party.name }} challenge={applying.challenge} onClose={() => setApplying(false)} /> : null}
     </Sheet>
   )
 }
@@ -205,6 +213,36 @@ function Block({ icon, title, text }: { icon: React.ReactNode; title: string; te
         {title}
       </h3>
       <p className="text-sm leading-relaxed text-muted-foreground">{text}</p>
+    </section>
+  )
+}
+
+/** A real sponsor's open challenges; athletes apply to one with a tap. */
+function Challenges({ list, canApply, onApply, limit }: { list?: OrgChallenge[]; canApply: boolean; onApply: (c: OrgChallenge) => void; limit?: number }) {
+  const open = (list ?? []).filter(isOpen).slice(0, limit ?? 10)
+  if (!open.length) return null
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-olympic-yellow">
+        <Trophy className="size-4" /> Desafíos abiertos
+      </h3>
+      {open.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          disabled={!canApply}
+          onClick={() => onApply(c)}
+          className="flex flex-col gap-1 rounded-xl border border-olympic-yellow/40 bg-background/70 p-3 text-left backdrop-blur disabled:cursor-default"
+        >
+          <span className="flex items-center justify-between gap-2">
+            <span className="font-semibold">{c.title}</span>
+            {canApply ? <span className="shrink-0 rounded-full bg-olympic-yellow px-2 py-0.5 text-[11px] font-bold text-olympic-black">Postularme</span> : null}
+          </span>
+          <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{c.detail}</span>
+          <span className="text-xs font-semibold text-olympic-green">Premio: {c.reward}</span>
+          {c.deadline ? <span className="text-[11px] text-muted-foreground">{deadlineLabel(c.deadline)}</span> : null}
+        </button>
+      ))}
     </section>
   )
 }
