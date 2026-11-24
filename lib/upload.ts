@@ -16,9 +16,9 @@ function dataUrlToBlob(dataUrl: string) {
 let blobAvailable: boolean | null = null
 
 /**
- * Uploads a file (or a data URL) to Vercel Blob and returns its public URL. If Blob isn't
- * set up yet it returns the data URL unchanged, so uploads keep working (stored in the
- * database, as before) until the store exists.
+ * Uploads a file (or a data URL) to Vercel Blob and returns its public URL. If Blob isn't set up
+ * or isn't answering, it returns the data URL instead, so uploads keep working (stored in the
+ * database, as before).
  */
 export async function storeMedia(kind: UploadKind, file: Blob | string): Promise<string> {
   const fallback = async () => (typeof file === 'string' ? file : await readAsDataUrl(file))
@@ -29,15 +29,15 @@ export async function storeMedia(kind: UploadKind, file: Blob | string): Promise
     blobAvailable = true
     return url
   } catch (error) {
-    if (await blobMissing(error)) return fallback()
-    throw error
+    blobFailed(error)
+    return fallback()
   }
 }
 
 /**
  * Uploads a photo as two copies: a crisp HD one (its URL is what gets saved) and a light one
- * next to it for small spots, found later with `thumbOf`. Without Blob set up it falls back to
- * a single medium copy stored in the database, as before.
+ * next to it for small spots, found later with `thumbOf`. If Blob isn't set up or isn't
+ * answering, it falls back to a single medium copy stored in the database, as before.
  */
 export async function storeImage(kind: Extract<UploadKind, 'post-image' | 'profile'>, file: File): Promise<string> {
   const image = await loadImage(file)
@@ -53,8 +53,8 @@ export async function storeImage(kind: Extract<UploadKind, 'post-image' | 'profi
     blobAvailable = true
     return url
   } catch (error) {
-    if (await blobMissing(error)) return readAsDataUrl(await encode(image, FALLBACK))
-    throw error
+    blobFailed(error)
+    return readAsDataUrl(await encode(image, FALLBACK))
   }
 }
 
@@ -67,16 +67,21 @@ function putBlob(kind: UploadKind, pathname: string, body: Blob) {
     handleUploadUrl: '/api/upload',
     clientPayload: JSON.stringify({ kind }),
     contentType: body.type,
+    // The Blob client retries a failing store for a long time; give up sooner and save the photo
+    // in the database instead of leaving the person waiting.
+    abortSignal: AbortSignal.timeout(BLOB_TIMEOUT_MS),
   }).then((result) => result.url)
 }
 
-/** A 503 from /api/upload means the Blob store isn't configured yet. */
-async function blobMissing(error: unknown) {
-  if (!String(error).includes('client token')) return false
-  const probe = await fetch('/api/upload', { method: 'POST', body: '{}' }).catch(() => null)
-  if (probe?.status !== 503) return false
+const BLOB_TIMEOUT_MS = 15_000
+
+/**
+ * Any Blob failure (store not set up, suspended, down, too slow) falls back to the database, and
+ * the rest of the visit skips Blob so the next upload doesn't wait again.
+ */
+function blobFailed(error: unknown) {
   blobAvailable = false
-  return true
+  console.warn('Vercel Blob no respondió; la foto se guarda en la base.', error)
 }
 
 function loadImage(file: File) {
