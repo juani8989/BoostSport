@@ -4,10 +4,10 @@ import { useRef, useState } from 'react'
 import { ImagePlus, Plus, Trash2 } from 'lucide-react'
 import type { MerchItem, OrgProfile } from '@/lib/profile-types'
 import { countries } from '@/lib/roles'
-import { storeMedia } from '@/lib/upload'
-import { compressImage } from '@/components/app/kit'
+import { storeImage } from '@/lib/upload'
 import { Field, FormError, TextareaField } from '@/components/auth/field'
 import { cn } from '@/lib/utils'
+import { thumbOf } from '@/lib/image-variants'
 
 export function ImageInput({ label, value, onChange, round }: { label: string; value?: string; onChange: (v: string | undefined) => void; round?: boolean }) {
   const input = useRef<HTMLInputElement>(null)
@@ -21,7 +21,7 @@ export function ImageInput({ label, value, onChange, round }: { label: string; v
         className={cn('flex size-20 shrink-0 items-center justify-center overflow-hidden border border-olympic-white/20 bg-olympic-white/5', round ? 'rounded-full' : 'rounded-xl')}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {value ? <img src={value} alt="" className="size-full object-cover" /> : <ImagePlus className="size-6 text-olympic-white/50" />}
+        {value ? <img src={thumbOf(value)} alt="" className="size-full object-cover" /> : <ImagePlus className="size-6 text-olympic-white/50" />}
       </button>
       <div className="flex flex-col gap-1">
         <span className="text-sm font-semibold text-olympic-white/80">{label}</span>
@@ -48,7 +48,7 @@ export function ImageInput({ label, value, onChange, round }: { label: string; v
           if (!file) return
           try {
             setError(null)
-            onChange(await storeMedia('profile', await compressImage(file, 600)))
+            onChange(await storeImage('profile', file))
           } catch {
             setError('No se pudo leer la imagen.')
           }

@@ -10,6 +10,7 @@ import { markNotificationsRead, type AppNotification, type NotificationType } fr
 import { toggleFollow } from '@/app/actions/social'
 import { load } from '@/lib/load'
 import { cn } from '@/lib/utils'
+import { thumbOf } from '@/lib/image-variants'
 
 export function NotificationBanner() {
   const { banner, dismissBanner } = useAppStore()
@@ -198,7 +199,7 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
                     ) : n.image ? (
                       <button type="button" onClick={() => open(n)} aria-label="Ver publicación" className="shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={n.image} alt="" loading="lazy" className="size-11 rounded-md object-cover" />
+                        <img src={thumbOf(n.image)} alt="" loading="lazy" className="size-11 rounded-md object-cover" />
                       </button>
                     ) : null}
                     {n.unread ? <span aria-label="Sin leer" className="size-2 shrink-0 rounded-full bg-olympic-blue" /> : null}

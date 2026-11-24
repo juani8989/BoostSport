@@ -10,6 +10,7 @@ import { useNav } from '@/components/app/nav'
 import { Field, FormError, TextareaField } from '@/components/auth/field'
 import { ImageInput } from '@/components/profile/org-profile-form'
 import type { MerchItem, OrgChallenge, SponsoredAthlete } from '@/lib/profile-types'
+import { thumbOf } from '@/lib/image-variants'
 
 /** "2026-12-05" → "Hasta el 5 de diciembre"; empty means no deadline. */
 export function deadlineLabel(value: string) {
@@ -157,7 +158,7 @@ export function ShopSection({ merch }: { merch: MerchItem[] }) {
             <li key={`${m.name}-${i}`} className="flex flex-col gap-2 rounded-2xl bg-card p-2">
               {m.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img loading="lazy" decoding="async" src={m.image} alt={m.name} className="aspect-square w-full rounded-xl object-cover" />
+                <img loading="lazy" decoding="async" src={thumbOf(m.image)} alt={m.name} className="aspect-square w-full rounded-xl object-cover" />
               ) : (
                 <button type="button" onClick={() => setManaging(true)} className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground">
                   <ShoppingBag className="size-7" />

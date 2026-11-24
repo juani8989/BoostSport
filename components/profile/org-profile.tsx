@@ -14,6 +14,7 @@ import { AiScout } from '@/components/org/ai-scout'
 import { PeopleSearch } from '@/components/org/people-search'
 import type { Viewer } from '@/components/app-shell'
 import { load } from '@/lib/load'
+import { thumbOf } from '@/lib/image-variants'
 import { ChallengesSection, ShopSection, SponsoredSheet } from '@/components/profile/sponsor-tools'
 import { FollowSheet } from '@/components/profile/follow-sheet'
 
@@ -178,7 +179,7 @@ export function OrgProfileView({ viewer }: { viewer: Viewer }) {
             {sponsored.map((s) => (
               <li key={s.key} className="w-32 shrink-0">
                 <button type="button" onClick={() => nav.openProfile(s.key)} className="flex w-full flex-col gap-2 text-left">
-                  <img loading="lazy" decoding="async" src={s.image || '/images/swimmer.webp'} alt={s.name} className="aspect-[3/4] w-full rounded-2xl object-cover" />
+                  <img loading="lazy" decoding="async" src={thumbOf(s.image) || '/images/swimmer.webp'} alt={s.name} className="aspect-[3/4] w-full rounded-2xl object-cover" />
                   <span className="flex flex-col">
                     <span className="truncate text-sm font-bold">{s.name}</span>
                     <span className="truncate text-xs text-muted-foreground">{s.discipline}</span>
