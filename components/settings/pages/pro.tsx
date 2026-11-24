@@ -36,6 +36,7 @@ import { Choice, Empty, Field, Intro, Loading, Notice, Page, PrimaryButton, Row,
 import type { PageProps } from '@/components/settings/types'
 import { cn } from '@/lib/utils'
 import { load } from '@/lib/load'
+import { thumbOf } from '@/lib/image-variants'
 
 function Stat({ icon: Icon, label, value, sub }: { icon: typeof Heart; label: string; value: number | string; sub?: string }) {
   return (
@@ -126,7 +127,7 @@ export function StatsPage({ back }: PageProps) {
                   <span className="w-4 font-display text-lg font-semibold text-muted-foreground">{i + 1}</span>
                   {p.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.image} alt="" className="size-12 rounded-lg object-cover" />
+                    <img src={thumbOf(p.image)} alt="" className="size-12 rounded-lg object-cover" />
                   ) : null}
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-2 text-sm">{p.body}</span>

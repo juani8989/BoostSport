@@ -15,13 +15,13 @@ import {
 } from '@/app/actions/social'
 import type { DailyKind } from '@/lib/catalog'
 import { useNav } from '@/components/app/nav'
-import { storeMedia } from '@/lib/upload'
+import { storeImage, storeMedia } from '@/lib/upload'
 import { SaveFolderSheet, SavedToast } from '@/components/saved/save-folders'
 import { ShareSheet } from '@/components/share/share-sheet'
 import { useCheer } from '@/components/app/cheer'
 import { ZoomableImage } from '@/components/posts/zoomable-image'
 import { useHeartBursts, useTapGestures } from '@/components/posts/tap-gestures'
-import { FeedSkeleton, PartyAvatar, Sheet, compactNumber, compressImage, isComposing, timeAgo } from '@/components/app/kit'
+import { FeedSkeleton, PartyAvatar, Sheet, compactNumber, isComposing, timeAgo } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { AnimatedCount, FxIcon, useTap, type FxVariant } from '@/components/app/action-fx'
 import { useSettings } from '@/components/settings/use-settings'
@@ -514,7 +514,7 @@ export function Composer({ onClose, onPosted, initialKind = 'diario' }: { onClos
     if (!file.type.startsWith('image/')) return setError('Elegí una imagen.')
     setUploading(true)
     try {
-      setImage(await storeMedia('post-image', await compressImage(file)))
+      setImage(await storeImage('post-image', file))
       setError(null)
     } catch {
       setError('No pudimos subir la imagen. Probá de nuevo.')

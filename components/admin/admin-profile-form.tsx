@@ -4,8 +4,8 @@ import { useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, ImagePlus, Plus, Trash2 } from 'lucide-react'
 import type { AthleteProfile, OrgProfile } from '@/lib/profile-types'
 import { countries, disciplines, needOptions } from '@/lib/roles'
-import { storeMedia } from '@/lib/upload'
-import { compressImage } from '@/components/app/kit'
+import { storeImage } from '@/lib/upload'
+import { thumbOf } from '@/lib/image-variants'
 import { AdminField, AdminSelect, AdminTextarea, Button, IconButton, Section, Toggle } from '@/components/admin/admin-ui'
 import { cn } from '@/lib/utils'
 
@@ -48,7 +48,7 @@ function ImagePicker({ label, value, onChange, round }: { label: string; value?:
         <span className={cn('flex size-20 shrink-0 items-center justify-center overflow-hidden border border-border bg-secondary', round ? 'rounded-full' : 'rounded-xl')}>
           {value ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="" className="size-full object-cover" />
+            <img src={thumbOf(value)} alt="" className="size-full object-cover" />
           ) : (
             <ImagePlus className="size-5 text-muted-foreground" />
           )}
@@ -84,7 +84,7 @@ function ImagePicker({ label, value, onChange, round }: { label: string; value?:
             if (!file) return
             try {
               setError(null)
-              onChange(await storeMedia('profile', await compressImage(file, 800)))
+              onChange(await storeImage('profile', file))
             } catch {
               setError('No se pudo leer la imagen.')
             }

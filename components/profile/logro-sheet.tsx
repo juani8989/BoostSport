@@ -3,8 +3,8 @@
 import { useRef, useState } from 'react'
 import { ImagePlus, Loader2, Medal, TrendingUp, X } from 'lucide-react'
 import { addVitrinaItem, type NewVitrinaItem } from '@/app/actions/vitrina'
-import { Sheet, compressImage } from '@/components/app/kit'
-import { storeMedia } from '@/lib/upload'
+import { Sheet } from '@/components/app/kit'
+import { storeImage } from '@/lib/upload'
 import { cn } from '@/lib/utils'
 
 const MEDALS = [
@@ -37,7 +37,7 @@ export function LogroSheet({ onClose, onAdded }: { onClose: () => void; onAdded:
     if (!file.type.startsWith('image/')) return setError('Elegí una imagen.')
     setUploading(true)
     try {
-      setImage(await storeMedia('post-image', await compressImage(file)))
+      setImage(await storeImage('post-image', file))
       setError(null)
     } catch {
       setError('No pudimos subir la foto. Probá de nuevo.')

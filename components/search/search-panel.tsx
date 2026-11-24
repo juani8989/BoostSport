@@ -12,6 +12,7 @@ import { companyFromKey, events, type SportEvent } from '@/lib/catalog'
 import type { SearchExplore, SearchPerson, SearchPost, SearchResults } from '@/app/actions/search'
 import { load } from '@/lib/load'
 import { cn } from '@/lib/utils'
+import { thumbOf } from '@/lib/image-variants'
 
 type Filter = 'todo' | 'people' | 'posts' | 'events' | 'references'
 
@@ -280,7 +281,7 @@ export function SearchPanel() {
                       className="flex items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={e.image} alt="" loading="lazy" className="size-14 shrink-0 rounded-lg object-cover" />
+                      <img src={thumbOf(e.image)} alt="" loading="lazy" className="size-14 shrink-0 rounded-lg object-cover" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-semibold">{e.name}</span>
                         <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
@@ -426,7 +427,7 @@ function PostRow({ post, onClick, rank, meta }: { post: SearchPost; onClick: () 
       {rank ? <span className="w-4 shrink-0 text-center font-display text-lg font-semibold text-muted-foreground">{rank}</span> : null}
       {post.image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={post.image} alt="" loading="lazy" className="size-14 shrink-0 rounded-lg object-cover" />
+        <img src={thumbOf(post.image)} alt="" loading="lazy" className="size-14 shrink-0 rounded-lg object-cover" />
       ) : (
         <span className="size-14 shrink-0 rounded-lg bg-secondary" />
       )}

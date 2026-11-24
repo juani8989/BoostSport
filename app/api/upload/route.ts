@@ -1,6 +1,7 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { getSession } from '@/lib/session'
 import { UPLOAD_KINDS, type UploadKind } from '@/lib/blob-url'
+import { VARIANT_PATH } from '@/lib/image-variants'
 
 /**
  * Hands the browser a short-lived token to upload one file straight to Vercel Blob.
@@ -25,7 +26,11 @@ export async function POST(request: Request) {
         return {
           allowedContentTypes: [...rules.types],
           maximumSizeInBytes: rules.maxBytes,
-          addRandomSuffix: true,
+          // A photo's HD and light copies are named `<uuid>.hd.webp` / `<uuid>.sm.webp` by the
+          // browser so one can be found from the other; the random uuid already keeps names unique,
+          // and overwriting stays off. Everything else still gets a random suffix.
+          addRandomSuffix: !VARIANT_PATH.test(pathname),
+          allowOverwrite: false,
           // Uploads never change once stored, so browsers and the CDN can keep them for a year.
           cacheControlMaxAge: 60 * 60 * 24 * 365,
           tokenPayload: JSON.stringify({ userId: session.user.id, kind }),

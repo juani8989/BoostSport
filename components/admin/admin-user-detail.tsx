@@ -25,6 +25,7 @@ import { ProfileReminderModal, progressTone } from '@/components/admin/profile-r
 import { completenessOf, profileChecklist } from '@/lib/profile-checklist'
 import { cn } from '@/lib/utils'
 import { load } from '@/lib/load'
+import { thumbOf } from '@/lib/image-variants'
 
 type Tab = 'perfil' | 'editar' | 'cuenta' | 'actividad' | 'avanzado'
 
@@ -321,7 +322,7 @@ function OrgFacts({ p }: { p: OrgProfile }) {
               <li key={i} className="overflow-hidden rounded-xl border border-border">
                 {m.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img loading="lazy" decoding="async" src={m.image} alt="" className="aspect-square w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={thumbOf(m.image)} alt="" className="aspect-square w-full object-cover" />
                 ) : (
                   <div className="aspect-square bg-secondary" />
                 )}
@@ -587,7 +588,7 @@ function ActivityTab({ data }: { data: Detail }) {
               <li key={post.id} className="flex gap-3 py-3">
                 {post.mediaUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img loading="lazy" decoding="async" src={post.mediaUrl} alt="" className="size-14 shrink-0 rounded-lg object-cover" />
+                  <img loading="lazy" decoding="async" src={thumbOf(post.mediaUrl)} alt="" className="size-14 shrink-0 rounded-lg object-cover" />
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm">{post.body}</p>

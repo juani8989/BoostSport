@@ -12,11 +12,12 @@ import { useSettings } from '@/components/settings/use-settings'
 import { Empty, Loading, Page, Row, Section, Tabs, dateLabel } from '@/components/settings/ui'
 import type { PageProps } from '@/components/settings/types'
 import { load } from '@/lib/load'
+import { thumbOf } from '@/lib/image-variants'
 
 function Thumb({ item }: { item: Pick<TargetPreview, 'image' | 'title'> }) {
   return item.image ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={item.image} alt="" loading="lazy" className="size-14 shrink-0 rounded-lg object-cover" />
+    <img src={thumbOf(item.image)} alt="" loading="lazy" className="size-14 shrink-0 rounded-lg object-cover" />
   ) : (
     <span className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-secondary p-1 text-center text-[9px] leading-tight text-muted-foreground">{item.title.slice(0, 40)}</span>
   )

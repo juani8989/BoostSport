@@ -26,6 +26,7 @@ import { load } from '@/lib/load'
 import { ShareSheet } from '@/components/share/share-sheet'
 import { SocialLinks } from '@/components/profile/social-links'
 import { galleryPhotoId } from '@/lib/photo-id'
+import { thumbOf } from '@/lib/image-variants'
 
 type Section = 'publicaciones' | 'menciones' | 'metas' | 'logros'
 
@@ -335,7 +336,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
                   />
                   {item.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img loading="lazy" decoding="async" src={item.image} alt={item.text.slice(0, 60)} className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                    <img loading="lazy" decoding="async" src={thumbOf(item.image)} alt={item.text.slice(0, 60)} className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                   ) : (
                     <div className="absolute inset-0 flex items-center bg-gradient-to-br from-olympic-blue/25 via-card to-card p-3">
                       <p className="line-clamp-6 text-xs font-medium leading-snug md:text-sm">{item.text}</p>
@@ -387,7 +388,7 @@ export function AthleteProfileView({ profileKey, initialPost }: { profileKey: st
                       <p className="text-sm leading-relaxed">{m.body}</p>
                       {m.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img loading="lazy" decoding="async" src={m.image} alt="" className="aspect-video w-full rounded-lg object-cover" />
+                        <img loading="lazy" decoding="async" src={thumbOf(m.image)} alt="" className="aspect-video w-full rounded-lg object-cover" />
                       ) : null}
                     </li>
                   ))}

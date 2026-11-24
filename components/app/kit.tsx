@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import type { Party } from '@/lib/viewer'
 import { cn } from '@/lib/utils'
+import { thumbOf } from '@/lib/image-variants'
 
 const roleRing: Record<Party['role'], string> = {
   deportista: 'ring-olympic-blue',
@@ -19,7 +20,7 @@ export function PartyAvatar({ party, className }: { party: Pick<Party, 'name' | 
     <span className={cn('relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-display text-sm font-semibold ring-2', roleRing[party.role], className)}>
       {image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img loading="lazy" decoding="async" src={image} alt="" onError={() => setBroken(image)} className="absolute inset-0 size-full object-cover" />
+        <img loading="lazy" decoding="async" src={thumbOf(image)} alt="" onError={() => setBroken(image)} className="absolute inset-0 size-full object-cover" />
       ) : (
         <span aria-hidden>{party.initials}</span>
       )}
